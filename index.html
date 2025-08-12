@@ -3,56 +3,163 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Gestor de Expedientes (Multiusuario)</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    :root { --radius: 12px; }
+  <title>Despacho Jurídico Barbosa Solorio — Gestor de Expedientes</title>
 
-    /* --- Layout y tablas --- */
-    .card{ border:1px solid #e5e7eb; border-radius:var(--radius); padding:12px; background:#fff }
-    .grid{ display:grid; gap:12px }
-    @media(min-width:900px){ .grid-3{grid-template-columns:repeat(3,1fr)} .grid-2{grid-template-columns:repeat(2,1fr)} }
-    table{ width:100%; border-collapse:collapse }
-    th,td{ padding:8px; border-top:1px solid #e5e7eb; vertical-align: top }
-    thead th{ background:#f6f7f9; position:sticky; top:0 }
-    .chips{ display:flex; gap:6px; flex-wrap:wrap }
-    .chip{ background:#f1f5f9; border:1px solid #e2e8f0; border-radius:999px; padding:2px 8px; font-size:12px }
-    .muted{ color:#555; white-space:pre-wrap }
+  <!-- Tipografía -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root{
+      --bg:#0d0d0d;         /* fondo principal */
+      --panel:#151515;      /* paneles/tarjetas */
+      --panel-2:#1c1c1c;    /* paneles secundarios */
+      --text:#f8f8f8;       /* texto base */
+      --muted:#b6b6b6;      /* texto tenue */
+      --line:#262626;       /* separadores */
+      --brand:#e50914;      /* rojo principal */
+      --brand-2:#b20710;    /* rojo hover */
+      --radius:14px;
+      --shadow: 0 0 20px rgba(229,9,20,.25);
+      --shadow-soft: 0 6px 20px rgba(0,0,0,.35);
+    }
+
+    *{ box-sizing:border-box }
+    html,body{ height:100% }
+    body{
+      margin:0;
+      font-family:'Poppins',system-ui,-apple-system,Segoe UI,Roboto;
+      background: radial-gradient(1200px 600px at -10% -20%, rgba(229,9,20,.10), transparent 40%),
+                  radial-gradient(800px 400px at 110% -10%, rgba(229,9,20,.08), transparent 35%),
+                  var(--bg);
+      color:var(--text);
+    }
+
+    /* ---------- Header / Navbar ---------- */
+    header.appbar{
+      position:sticky; top:0; z-index:20;
+      backdrop-filter:saturate(140%) blur(8px);
+      background:linear-gradient(0deg, rgba(21,21,21,.9), rgba(21,21,21,.9));
+      border-bottom:1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+    }
+    .appbar .wrap{
+      max-width:1200px; margin:0 auto; padding:14px 16px;
+      display:flex; align-items:center; gap:12px;
+    }
+    .brand{
+      display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.3px;
+    }
+    .brand .dot{ width:12px; height:12px; border-radius:50%; background:var(--brand); box-shadow:0 0 18px var(--brand) }
+    .brand .title{ font-size:18px }
+    .brand .title span{ color:var(--brand) }
+
+    .toolbar{ display:flex; gap:8px; margin-left:auto }
+    .btn{
+      border:1px solid var(--line); background:var(--panel-2); color:var(--text);
+      padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600;
+      transition:.2s transform ease, .2s background ease, .2s border ease, .2s box-shadow ease;
+    }
+    .btn:hover{ border-color:#343434; transform:translateY(-1px) }
+    .btn.brand{ background:var(--brand); border-color:transparent; color:white; box-shadow:var(--shadow) }
+    .btn.brand:hover{ background:var(--brand-2) }
+
+    /* ---------- Layout ---------- */
+    main{ max-width:1200px; margin:18px auto; padding:0 16px; display:grid; gap:14px }
+    .grid{ display:grid; gap:14px }
+    @media(min-width:900px){ .grid-3{ grid-template-columns:repeat(3,1fr) } .grid-2{ grid-template-columns:repeat(2,1fr) } }
+
+    /* ---------- Tarjetas y bloques ---------- */
+    .card{
+      background:linear-gradient(180deg, var(--panel), #101010);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:14px;
+      box-shadow:var(--shadow-soft);
+    }
+    .muted{ color:var(--muted); white-space:pre-wrap }
+    .chips{ display:flex; flex-wrap:wrap; gap:8px }
+    .chip{
+      background:#1f1f1f; border:1px solid var(--line);
+      color:#eaeaea; border-radius:999px; padding:4px 10px; font-size:12px
+    }
+
+    /* ---------- Filtros ---------- */
+    details summary{ cursor:pointer; user-select:none }
+    details[open] summary{ color:#fff }
+    label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px }
+    input, textarea, select{
+      width:100%; background:#111; color:#f2f2f2;
+      border:1px solid #2a2a2a; border-radius:10px; padding:10px 12px; outline:none;
+      transition:border .15s ease, box-shadow .15s ease;
+    }
+    input:focus, textarea:focus, select:focus{ border-color:var(--brand); box-shadow:0 0 0 3px rgba(229,9,20,.25) }
+
+    /* ---------- Tabla ---------- */
+    table{ width:100%; border-collapse:collapse; font-size:14px }
+    thead th{
+      position:sticky; top:0; z-index:1; text-align:left;
+      background:#111; color:#ddd; padding:12px; border-bottom:1px solid var(--line);
+    }
+    tbody td{
+      padding:12px; border-top:1px solid var(--line); vertical-align:top;
+    }
+    tbody tr:hover{ background:#121212 }
+
+    .actions{ display:flex; gap:6px; justify-content:flex-end }
+    .btn.slim{ padding:6px 10px; border-radius:8px; font-weight:600 }
     .nowrap{ white-space:nowrap }
 
-    /* --- Header por debajo del modal --- */
-    header.card{ z-index: 10 !important; position: sticky; top: 0 }
+    /* ---------- Modales ---------- */
+    .modal-backdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,.55);
+      display:none; align-items:center; justify-content:center; padding:18px;
+      z-index:2000;
+    }
+    .modal{
+      background:linear-gradient(180deg, var(--panel), #101010);
+      border:1px solid var(--line); border-radius:18px; max-width:980px; width:100%;
+      max-height:90vh; overflow:auto; box-shadow:var(--shadow-soft);
+      position:relative; z-index:2001;
+    }
+    .modal header{ display:flex; align-items:center; gap:8px; padding:14px 16px; border-bottom:1px solid var(--line) }
+    .modal header strong{ font-size:16px }
+    .modal .body{ padding:16px }
+    .close-x{ background:#1b1b1b; border:1px solid var(--line); color:#ddd; border-radius:10px; padding:6px 10px; cursor:pointer }
+    .close-x:hover{ border-color:#333 }
+    body.modal-open{ overflow:hidden }
 
-    /* --- Modal estable (no tapa clics cuando está cerrado) --- */
-    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; padding:12px; z-index:2000 }
-    .modal-backdrop.is-open{ display:flex }
-    .modal{ background:#fff; border-radius:var(--radius); border:1px solid #e5e7eb; max-width:920px; width:100%; max-height:90vh; overflow:auto; position:relative; z-index:2001 }
+    /* ---------- KPIs ---------- */
+    .kpi{ font-size:30px; font-weight:700 }
+    .kpi-accent{ color:var(--brand) }
 
-    /* Evitar que el fondo se mueva cuando el modal está abierto */
-    body.modal-open { overflow: hidden; }
-
-    /* Si el modal está oculto, que no capture clics */
-    .modal-backdrop:not(.is-open){ pointer-events:none }
+    /* ---------- Print preview page ---------- */
+    @media print{ .appbar, .toolbar{ display:none !important } }
   </style>
 </head>
 <body>
-  <header class="card">
-    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
-      <strong style="font-size:18px">DESPACHO JURIDICO BARBOSA SOLORIO</strong>
-      <span style="color:#6b7280">Gestor de Expedientes</span>
-      <span style="flex:1"></span>
-      <button id="btn-nuevo">➕ Nuevo</button>
-      <button id="btn-export">⬇️ Exportar CSV</button>
-      <button id="btn-reset">🧹 Limpiar filtros</button>
+  <!-- HEADER -->
+  <header class="appbar">
+    <div class="wrap">
+      <div class="brand">
+        <span class="dot"></span>
+        <div class="title">Despacho Jurídico <span>Barbosa Solorio</span></div>
+      </div>
+      <div class="toolbar">
+        <button id="btn-reset" class="btn">🧹 Limpiar filtros</button>
+        <button id="btn-export" class="btn">⬇️ Exportar CSV</button>
+        <button id="btn-nuevo" class="btn brand">➕ Nuevo expediente</button>
+      </div>
     </div>
   </header>
 
-  <main class="grid" style="margin-top:12px">
+  <!-- CONTENIDO -->
+  <main class="grid">
     <section class="grid grid-3">
       <div class="card">
         <div class="muted">Total de expedientes</div>
-        <div id="kpi-total" style="font-size:28px; font-weight:700">0</div>
+        <div id="kpi-total" class="kpi">0</div>
       </div>
       <div class="card">
         <div class="muted">Por tipo de juicio</div>
@@ -67,7 +174,7 @@
     <section class="card">
       <details open>
         <summary><strong>Filtros de búsqueda</strong></summary>
-        <div class="grid grid-3" style="margin-top:8px">
+        <div class="grid grid-3" style="margin-top:10px">
           <div>
             <label>Buscar texto</label>
             <input id="f-q" placeholder="Nº, actor, demandado, juzgado…"/>
@@ -114,17 +221,17 @@
         </thead>
         <tbody id="tbody"></tbody>
       </table>
-      <div id="empty" class="muted" style="padding:14px; display:none">Sin registros. Crea el primero con «Nuevo».</div>
+      <div id="empty" class="muted" style="padding:14px; display:none">Sin registros. Crea el primero con «Nuevo expediente».</div>
     </section>
   </main>
 
   <!-- MODAL: Form -->
-  <div class="modal-backdrop" id="modal-form">
+  <div class="modal-backdrop" id="modal-form" aria-hidden="true">
     <div class="modal">
       <header>
         <strong id="form-title">Nuevo expediente</strong>
         <span style="flex:1"></span>
-        <button onclick="UI.closeForm()">✖</button>
+        <button class="close-x" onclick="UI.closeForm()">✖</button>
       </header>
       <div class="body">
         <form id="form-exp" class="grid grid-2">
@@ -142,8 +249,8 @@
           <div class="grid" style="grid-column:1/-1"><label>Situación procesal *</label><textarea id="situacion_procesal" rows="3" required></textarea></div>
           <div class="grid" style="grid-column:1/-1"><label>Nota interna</label><textarea id="nota_interna" rows="2"></textarea></div>
           <div style="grid-column:1/-1; display:flex; gap:8px; justify-content:flex-end">
-            <button type="button" onclick="UI.closeForm()">Cancelar</button>
-            <button>💾 Guardar</button>
+            <button type="button" class="btn" onclick="UI.closeForm()">Cancelar</button>
+            <button class="btn brand">💾 Guardar</button>
           </div>
         </form>
       </div>
@@ -151,12 +258,12 @@
   </div>
 
   <!-- MODAL: Detalle -->
-  <div class="modal-backdrop" id="modal-detalle">
+  <div class="modal-backdrop" id="modal-detalle" aria-hidden="true">
     <div class="modal">
       <header>
         <strong>Detalle del expediente</strong>
         <span style="flex:1"></span>
-        <button onclick="UI.closeDetalle()">✖</button>
+        <button class="close-x" onclick="UI.closeDetalle()">✖</button>
       </header>
       <div class="body">
         <div id="det-head" class="chips" style="margin-bottom:8px"></div>
@@ -169,19 +276,22 @@
           <form id="form-act" class="grid grid-2" style="margin-top:8px">
             <div><label>Fecha *</label><input type="date" id="act-fecha" required/></div>
             <div><label>Descripción *</label><input id="act-desc" required/></div>
-            <div style="grid-column:1/-1; display:flex; justify-content:flex-end; gap:8px"><button>➕ Agregar actuación</button></div>
+            <div style="grid-column:1/-1; display:flex; justify-content:flex-end; gap:8px">
+              <button class="btn brand">➕ Agregar actuación</button>
+            </div>
           </form>
         </details>
-        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px"><button id="btn-imprimir">🖨️ Imprimir / PDF</button></div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px">
+          <button id="btn-imprimir" class="btn">🖨️ Imprimir / PDF</button>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
     // ====== CONFIGURACIÓN SUPABASE ======
-    // 🔁 REEMPLAZA con los tuyos desde Supabase → Settings → API
     const SUPABASE_URL = "https://klznqpzigtpmrhomzvnq.supabase.co";        // ej. https://xxxx.supabase.co
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsem5xcHppZ3RwbXJob216dm5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMjE3NjEsImV4cCI6MjA3MDU5Nzc2MX0.rqyi7nDeqLDem6HspKVdHfOnxD0WRPGvBHvL3fJ3FmY"; // ← pega tu anon key
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsem5xcHppZ3RwbXJob216dm5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMjE3NjEsImV4cCI6MjA3MDU5Nzc2MX0.rqyi7nDeqLDem6HspKVdHfOnxD0WRPGvBHvL3fJ3FmY";
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -197,11 +307,15 @@
       datos: [],
 
       async init(){
+        // acciones de barra
         document.getElementById('btn-nuevo').onclick = ()=> UI.openForm();
         document.getElementById('btn-export').onclick = ()=> Export.csv();
         document.getElementById('btn-reset').onclick = ()=> { UI.filtros = { q:'', tipo:'', desde:'', hasta:'', municipio:'', estado:'' }; UI.syncFiltros(); UI.load(); };
+
+        // filtros
         ['f-q','f-tipo','f-desde','f-hasta','f-municipio','f-estado'].forEach(id=> document.getElementById(id).addEventListener('input', UI.onFiltroChange));
         UI.syncFiltros();
+
         await UI.load();
       },
 
@@ -215,7 +329,11 @@
         UI.load();
       },
 
-      syncFiltros(){ const f=UI.filtros; document.getElementById('f-q').value=f.q; document.getElementById('f-tipo').value=f.tipo; document.getElementById('f-desde').value=f.desde; document.getElementById('f-hasta').value=f.hasta; document.getElementById('f-municipio').value=f.municipio; document.getElementById('f-estado').value=f.estado; },
+      syncFiltros(){ const f=UI.filtros;
+        document.getElementById('f-q').value=f.q; document.getElementById('f-tipo').value=f.tipo;
+        document.getElementById('f-desde').value=f.desde; document.getElementById('f-hasta').value=f.hasta;
+        document.getElementById('f-municipio').value=f.municipio; document.getElementById('f-estado').value=f.estado;
+      },
 
       async load(){
         let query = sb.from('expedientes').select('*').order('fecha_ultimo_acuerdo', { ascending: false });
@@ -230,7 +348,7 @@
           query = query.or(`numero_expediente.ilike.%${q}%,actor_nombre.ilike.%${q}%,demandado_nombre.ilike.%${q}%,juzgado_nombre.ilike.%${q}%,juzgado_numero.ilike.%${q}%,circunscripcion.ilike.%${q}%,tipo_juicio.ilike.%${q}%`);
         }
         const { data, error } = await query;
-        if (error) { console.error(error); alert('Error cargando datos: '+ (error.message||'')); return }
+        if (error) { console.error(error); alert('Error cargando datos'); return }
         UI.datos = data || [];
         UI.render();
       },
@@ -243,18 +361,20 @@
         UI.datos.forEach(e => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td class="nowrap"><strong>${escapeHtml(e.numero_expediente)}</strong></td>
+            <td class="nowrap"><strong style="color:var(--brand)">${escapeHtml(e.numero_expediente)}</strong></td>
             <td>${escapeHtml(e.tipo_juicio)}</td>
             <td>${escapeHtml(e.actor_nombre)}</td>
             <td>${escapeHtml(e.demandado_nombre)}</td>
             <td>${escapeHtml(e.juzgado_nombre)} / ${escapeHtml(e.juzgado_numero)}</td>
             <td>${escapeHtml(e.municipio)} / ${escapeHtml(e.estado)}</td>
             <td class="nowrap">${escapeHtml(e.fecha_ultimo_acuerdo)}</td>
-            <td style="text-align:right">
-              <button onclick="UI.ver('${e.id}')">👁️ Ver</button>
-              <button onclick="UI.editar('${e.id}')">✏️ Editar</button>
-              <button onclick="Print.expediente('${e.id}')">🖨️ PDF</button>
-              <button onclick="UI.eliminar('${e.id}')">🗑️ Eliminar</button>
+            <td>
+              <div class="actions">
+                <button class="btn slim" onclick="UI.ver('${e.id}')">👁️ Ver</button>
+                <button class="btn slim" onclick="UI.editar('${e.id}')">✏️ Editar</button>
+                <button class="btn slim" onclick="Print.expediente('${e.id}')">🖨️ PDF</button>
+                <button class="btn slim" onclick="UI.eliminar('${e.id}')">🗑️ Eliminar</button>
+              </div>
             </td>`;
           tbody.appendChild(tr);
         });
@@ -265,39 +385,34 @@
       async eliminar(id){
         if(!confirm('¿Eliminar expediente?')) return;
         const { error } = await sb.from('expedientes').delete().eq('id', id);
-        if (error) { alert('Error al eliminar: '+(error.message||'')); console.error(error); return }
+        if (error) { alert('Error al eliminar'); console.error(error); return }
         await UI.load();
       },
 
-      // ----- Form -----
       openForm(initial){
-        document.getElementById('modal-form').classList.add('is-open');
+        document.getElementById('modal-form').style.display='flex';
         document.body.classList.add('modal-open');
         document.getElementById('form-title').textContent = initial? 'Editar expediente' : 'Nuevo expediente';
-
         const d = initial || { id:'', numero_expediente:'', tipo_juicio:'', fecha_ultimo_acuerdo:new Date().toISOString().slice(0,10), situacion_procesal:'', juzgado_nombre:'', juzgado_numero:'', circunscripcion:'', municipio:'', estado:'', actor_nombre:'', demandado_nombre:'', nota_interna:'' };
         for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ document.getElementById(k).value = d[k] || ''; }
-
         const form = document.getElementById('form-exp');
         form.onsubmit = async (ev)=>{
           ev.preventDefault();
           const data = {}; 
-          for (const k of ['numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ 
-            data[k] = document.getElementById(k).value.trim(); 
-          }
+          for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ data[k] = document.getElementById(k).value.trim(); }
           for (const req of ['numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','circunscripcion','juzgado_nombre','juzgado_numero','municipio','estado','actor_nombre','demandado_nombre','situacion_procesal']){ if(!data[req]) return alert('Falta: '+req.replace('_',' ')); }
-          const idVal = document.getElementById('id').value.trim();
           let res;
-          if (idVal) {
-            res = await sb.from('expedientes').update(data).eq('id', idVal).select('*').single();
+          if (data.id) {
+            const id = data.id; delete data.id;
+            res = await sb.from('expedientes').update(data).eq('id', id).select('*').single();
           } else {
             res = await sb.from('expedientes').insert(data).select('*').single();
           }
-          if (res.error) { console.error(res.error); alert('Error: '+(res.error.message||'al guardar')); return }
+          if (res.error) { console.error(res.error); alert('Error al guardar'); return }
           UI.closeForm(); await UI.load();
         };
       },
-      closeForm(){ document.getElementById('modal-form').classList.remove('is-open'); document.body.classList.remove('modal-open'); },
+      closeForm(){ document.getElementById('modal-form').style.display='none'; document.body.classList.remove('modal-open'); },
 
       editar(id){ const rec = UI.datos.find(x=>x.id===id); if(rec) UI.openForm(rec); },
 
@@ -321,16 +436,16 @@
           const fecha = document.getElementById('act-fecha').value; const desc = document.getElementById('act-desc').value.trim();
           if(!fecha || !desc) return alert('Falta fecha o descripción');
           const { error } = await sb.from('actuaciones_historial').insert({ expediente_id: id, fecha, descripcion: desc });
-          if (error) { alert('Error al agregar actuación: '+(error.message||'')); console.error(error); return }
+          if (error) { alert('Error al agregar actuación'); console.error(error); return }
           document.getElementById('act-fecha').value=''; document.getElementById('act-desc').value='';
           UI.ver(id);
         };
 
         document.getElementById('btn-imprimir').onclick = ()=> Print.expediente(id);
-        document.getElementById('modal-detalle').classList.add('is-open');
+        document.getElementById('modal-detalle').style.display='flex';
         document.body.classList.add('modal-open');
       },
-      closeDetalle(){ document.getElementById('modal-detalle').classList.remove('is-open'); document.body.classList.remove('modal-open'); }
+      closeDetalle(){ document.getElementById('modal-detalle').style.display='none'; document.body.classList.remove('modal-open'); }
     };
 
     // ====== Reportes ======
@@ -357,7 +472,15 @@
       async expediente(id){
         const { data: e } = await sb.from('expedientes').select('*').eq('id', id).single(); if(!e) return;
         const w = window.open('', '_blank'); if(!w) return;
-        const h = `<!doctype html><html lang=es><head><meta charset=utf-8><title>Expediente ${e.numero_expediente}</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto;padding:20px}h1{font-size:20px;margin:0 0 6px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}.box{border:1px solid #e5e7eb;padding:10px;border-radius:10px;margin-top:10px}.label{color:#555;font-size:12px}.val{font-weight:600}.muted{white-space:pre-wrap}</style></head><body>
+        const h = `<!doctype html><html lang=es><head><meta charset=utf-8><title>Expediente ${e.numero_expediente}</title>
+          <style>
+            body{font-family:Poppins,system-ui,-apple-system,Segoe UI,Roboto;padding:24px;background:#fff;color:#111}
+            h1{font-size:22px;margin:0 0 10px}
+            .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+            .box{border:1px solid #e5e7eb;padding:12px;border-radius:10px;margin-top:12px}
+            .label{color:#555;font-size:12px}.val{font-weight:600}
+            .muted{white-space:pre-wrap}
+          </style></head><body>
           <h1>Expediente ${escapeHtml(e.numero_expediente)}</h1>
           <div class=grid>
             <div><div class=label>Tipo de juicio</div><div class=val>${escapeHtml(e.tipo_juicio)}</div></div>
@@ -376,10 +499,8 @@
       }
     };
 
-    // Iniciar (el script está al final del body, DOM ya cargado)
+    // Iniciar
     UI.init();
   </script>
 </body>
 </html>
-
-

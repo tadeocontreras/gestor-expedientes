@@ -7,6 +7,25 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
+    /* Asegurar que el modal esté encima de todo */
+  .modal-backdrop {
+  z-index: 2000 !important;
+  }
+  .modal {
+  position: relative;
+  z-index: 2001 !important;
+  }
+
+  /* Bajar el z-index del header */
+  header.card {
+  z-index: 10 !important;
+  }
+
+  /* Evitar que el fondo se mueva cuando el modal está abierto */
+  body.modal-open { 
+  overflow: hidden; 
+}
+
     :root { --radius: 12px; }
     .card{ border:1px solid #e5e7eb; border-radius:var(--radius); padding:12px; background:#fff }
     .grid{ display:grid; gap:12px }
@@ -365,3 +384,4 @@
   </script>
 </body>
 </html>
+

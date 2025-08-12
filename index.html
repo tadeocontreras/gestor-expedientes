@@ -7,26 +7,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    /* Asegurar que el modal esté encima de todo */
-  .modal-backdrop {
-  z-index: 2000 !important;
-  }
-  .modal {
-  position: relative;
-  z-index: 2001 !important;
-  }
-
-  /* Bajar el z-index del header */
-  header.card {
-  z-index: 10 !important;
-  }
-
-  /* Evitar que el fondo se mueva cuando el modal está abierto */
-  body.modal-open { 
-  overflow: hidden; 
-}
-
     :root { --radius: 12px; }
+
+    /* --- Layout y tablas --- */
     .card{ border:1px solid #e5e7eb; border-radius:var(--radius); padding:12px; background:#fff }
     .grid{ display:grid; gap:12px }
     @media(min-width:900px){ .grid-3{grid-template-columns:repeat(3,1fr)} .grid-2{grid-template-columns:repeat(2,1fr)} }
@@ -35,16 +18,26 @@
     thead th{ background:#f6f7f9; position:sticky; top:0 }
     .chips{ display:flex; gap:6px; flex-wrap:wrap }
     .chip{ background:#f1f5f9; border:1px solid #e2e8f0; border-radius:999px; padding:2px 8px; font-size:12px }
-    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; padding:12px }
-    .modal{ background:#fff; border-radius:var(--radius); border:1px solid #e5e7eb; max-width:920px; width:100%; max-height:90vh; overflow:auto }
-    .modal header{ display:flex; align-items:center; padding:12px; border-bottom:1px solid #e5e7eb }
-    .modal .body{ padding:12px }
     .muted{ color:#555; white-space:pre-wrap }
     .nowrap{ white-space:nowrap }
+
+    /* --- Header por debajo del modal --- */
+    header.card{ z-index: 10 !important; position: sticky; top: 0 }
+
+    /* --- Modal estable (no tapa clics cuando está cerrado) --- */
+    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; padding:12px; z-index:2000 }
+    .modal-backdrop.is-open{ display:flex }
+    .modal{ background:#fff; border-radius:var(--radius); border:1px solid #e5e7eb; max-width:920px; width:100%; max-height:90vh; overflow:auto; position:relative; z-index:2001 }
+
+    /* Evitar que el fondo se mueva cuando el modal está abierto */
+    body.modal-open { overflow: hidden; }
+
+    /* Si el modal está oculto, que no capture clics */
+    .modal-backdrop:not(.is-open){ pointer-events:none }
   </style>
 </head>
 <body>
-  <header class="card" style="position:sticky; top:0; z-index:5">
+  <header class="card">
     <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
       <strong style="font-size:18px">Gestor de Expedientes</strong>
       <span style="color:#6b7280">Multiusuario (Supabase)</span>
@@ -186,8 +179,9 @@
 
   <script>
     // ====== CONFIGURACIÓN SUPABASE ======
+    // 🔁 REEMPLAZA con los tuyos desde Supabase → Settings → API
     const SUPABASE_URL = "https://klznqpzigtpmrhomzvnq.supabase.co";        // ej. https://xxxx.supabase.co
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsem5xcHppZ3RwbXJob216dm5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMjE3NjEsImV4cCI6MjA3MDU5Nzc2MX0.rqyi7nDeqLDem6HspKVdHfOnxD0WRPGvBHvL3fJ3FmY";
+    const SUPABASE_ANON_KEY = "PON_AQUI_TU_ANON_KEY"; // ← pega tu anon key
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -221,11 +215,9 @@
         UI.load();
       },
 
-      syncFiltros(){ const f=UI.filtros; ['f-q','f-tipo','f-desde','f-hasta','f-municipio','f-estado'].forEach(id=>{});
-        document.getElementById('f-q').value=f.q; document.getElementById('f-tipo').value=f.tipo; document.getElementById('f-desde').value=f.desde; document.getElementById('f-hasta').value=f.hasta; document.getElementById('f-municipio').value=f.municipio; document.getElementById('f-estado').value=f.estado; },
+      syncFiltros(){ const f=UI.filtros; document.getElementById('f-q').value=f.q; document.getElementById('f-tipo').value=f.tipo; document.getElementById('f-desde').value=f.desde; document.getElementById('f-hasta').value=f.hasta; document.getElementById('f-municipio').value=f.municipio; document.getElementById('f-estado').value=f.estado; },
 
       async load(){
-        // Construimos query con filtros principales del lado del servidor
         let query = sb.from('expedientes').select('*').order('fecha_ultimo_acuerdo', { ascending: false });
         const f = UI.filtros;
         if (f.tipo) query = query.ilike('tipo_juicio', `%${f.tipo}%`);
@@ -238,7 +230,7 @@
           query = query.or(`numero_expediente.ilike.%${q}%,actor_nombre.ilike.%${q}%,demandado_nombre.ilike.%${q}%,juzgado_nombre.ilike.%${q}%,juzgado_numero.ilike.%${q}%,circunscripcion.ilike.%${q}%,tipo_juicio.ilike.%${q}%`);
         }
         const { data, error } = await query;
-        if (error) { console.error(error); alert('Error cargando datos'); return }
+        if (error) { console.error(error); alert('Error cargando datos: '+ (error.message||'')); return }
         UI.datos = data || [];
         UI.render();
       },
@@ -266,7 +258,6 @@
             </td>`;
           tbody.appendChild(tr);
         });
-        // KPIs
         document.getElementById('kpi-total').textContent = String(UI.datos.length);
         Reports.render(UI.datos);
       },
@@ -274,37 +265,40 @@
       async eliminar(id){
         if(!confirm('¿Eliminar expediente?')) return;
         const { error } = await sb.from('expedientes').delete().eq('id', id);
-        if (error) { alert('Error al eliminar'); console.error(error); return }
+        if (error) { alert('Error al eliminar: '+(error.message||'')); console.error(error); return }
         await UI.load();
       },
 
       // ----- Form -----
       openForm(initial){
-  // Mostrar modal y bloquear scroll de fondo (opcional)
-  document.getElementById('modal-form').style.display='flex';
-  document.body.classList.add('modal-open');
+        document.getElementById('modal-form').classList.add('is-open');
+        document.body.classList.add('modal-open');
+        document.getElementById('form-title').textContent = initial? 'Editar expediente' : 'Nuevo expediente';
 
-  document.getElementById('form-title').textContent = initial? 'Editar expediente' : 'Nuevo expediente';
+        const d = initial || { id:'', numero_expediente:'', tipo_juicio:'', fecha_ultimo_acuerdo:new Date().toISOString().slice(0,10), situacion_procesal:'', juzgado_nombre:'', juzgado_numero:'', circunscripcion:'', municipio:'', estado:'', actor_nombre:'', demandado_nombre:'', nota_interna:'' };
+        for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ document.getElementById(k).value = d[k] || ''; }
 
-  // Valores iniciales
-  const d = initial || {
-    id:'', numero_expediente:'', tipo_juicio:'',
-    fecha_ultimo_acuerdo: new Date().toISOString().slice(0,10),
-    situacion_procesal:'', juzgado_nombre:'', juzgado_numero:'',
-    circunscripcion:'', municipio:'', estado:'',
-    actor_nombre:'', demandado_nombre:'', nota_interna:''
-  };
+        const form = document.getElementById('form-exp');
+        form.onsubmit = async (ev)=>{
+          ev.preventDefault();
+          const data = {}; 
+          for (const k of ['numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ 
+            data[k] = document.getElementById(k).value.trim(); 
+          }
+          for (const req of ['numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','circunscripcion','juzgado_nombre','juzgado_numero','municipio','estado','actor_nombre','demandado_nombre','situacion_procesal']){ if(!data[req]) return alert('Falta: '+req.replace('_',' ')); }
+          const idVal = document.getElementById('id').value.trim();
+          let res;
+          if (idVal) {
+            res = await sb.from('expedientes').update(data).eq('id', idVal).select('*').single();
+          } else {
+            res = await sb.from('expedientes').insert(data).select('*').single();
+          }
+          if (res.error) { console.error(res.error); alert('Error: '+(res.error.message||'al guardar')); return }
+          UI.closeForm(); await UI.load();
+        };
+      },
+      closeForm(){ document.getElementById('modal-form').classList.remove('is-open'); document.body.classList.remove('modal-open'); },
 
-  // Pintar en el formulario
-  for (const k of [
-    'id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal',
-    'juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado',
-    'actor_nombre','demandado_
-
-     closeForm(){
-  document.getElementById('modal-form').style.display='none';
-  document.body.classList.remove('modal-open');
-},
       editar(id){ const rec = UI.datos.find(x=>x.id===id); if(rec) UI.openForm(rec); },
 
       async ver(id){
@@ -317,7 +311,6 @@
         document.getElementById('det-situacion').textContent = e.situacion_procesal || '';
         document.getElementById('det-nota').textContent = e.nota_interna || '';
 
-        // Historial
         const hist = document.getElementById('det-historial'); hist.innerHTML='';
         const { data: acts } = await sb.from('actuaciones_historial').select('*').eq('expediente_id', id).order('fecha', { ascending: false });
         (acts||[]).forEach(a=>{ const c=document.createElement('div'); c.className='card'; c.innerHTML = `<div class=muted><strong>${escapeHtml(a.fecha)}</strong> — ${escapeHtml(a.descripcion)}</div>`; hist.append(c); });
@@ -328,18 +321,16 @@
           const fecha = document.getElementById('act-fecha').value; const desc = document.getElementById('act-desc').value.trim();
           if(!fecha || !desc) return alert('Falta fecha o descripción');
           const { error } = await sb.from('actuaciones_historial').insert({ expediente_id: id, fecha, descripcion: desc });
-          if (error) { alert('Error al agregar actuación'); console.error(error); return }
+          if (error) { alert('Error al agregar actuación: '+(error.message||'')); console.error(error); return }
           document.getElementById('act-fecha').value=''; document.getElementById('act-desc').value='';
-          UI.ver(id); // recargar detalle
+          UI.ver(id);
         };
 
         document.getElementById('btn-imprimir').onclick = ()=> Print.expediente(id);
-        document.getElementById('modal-detalle').style.display='flex';
-      },closeDetalle(){
-  document.getElementById('modal-detalle').style.display='none';
-  document.body.classList.remove('modal-open');
-}
-
+        document.getElementById('modal-detalle').classList.add('is-open');
+        document.body.classList.add('modal-open');
+      },
+      closeDetalle(){ document.getElementById('modal-detalle').classList.remove('is-open'); document.body.classList.remove('modal-open'); }
     };
 
     // ====== Reportes ======
@@ -385,10 +376,8 @@
       }
     };
 
-    // Iniciar
+    // Iniciar (el script está al final del body, DOM ya cargado)
     UI.init();
   </script>
 </body>
 </html>
-
-

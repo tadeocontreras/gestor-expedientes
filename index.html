@@ -3,51 +3,44 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Gestor de Expedientes</title>
-  <!-- Estilos sencillos: water.css (CDN) -->
+  <title>Gestor de Expedientes (Multiusuario)</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/light.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root { --radius: 12px; }
-    .card { border: 1px solid #e5e7eb; border-radius: var(--radius); padding: 12px; background:#fff; }
-    .grid { display: grid; gap: 12px; }
-    @media (min-width: 900px){ .grid-3 { grid-template-columns: repeat(3,1fr);} .grid-2{grid-template-columns: repeat(2,1fr);} }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 8px; border-top: 1px solid #e5e7eb; vertical-align: top; }
-    thead th { background: #f6f7f9; position: sticky; top: 0; }
-    .row-actions button { margin-right: 6px; }
-    .muted { color: #555; white-space: pre-wrap; }
-    .chips { display:flex; flex-wrap:wrap; gap:6px }
-    .chip { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:999px; padding:2px 8px; font-size:12px }
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; padding: 12px; }
-    .modal { background:#fff; border-radius: var(--radius); border:1px solid #e5e7eb; max-width: 920px; width: 100%; max-height: 90vh; overflow:auto }
-    .modal header { display:flex; align-items:center; padding:12px; border-bottom:1px solid #e5e7eb }
-    .modal .body { padding:12px }
-    .toolbar { display:flex; gap:8px; flex-wrap: wrap; align-items: center; }
-    .toolbar .spacer { flex: 1; }
-    .hidden { display: none; }
-    .kpi { font-size: 28px; font-weight: 700; }
-    .nowrap { white-space: nowrap; }
+    .card{ border:1px solid #e5e7eb; border-radius:var(--radius); padding:12px; background:#fff }
+    .grid{ display:grid; gap:12px }
+    @media(min-width:900px){ .grid-3{grid-template-columns:repeat(3,1fr)} .grid-2{grid-template-columns:repeat(2,1fr)} }
+    table{ width:100%; border-collapse:collapse }
+    th,td{ padding:8px; border-top:1px solid #e5e7eb; vertical-align: top }
+    thead th{ background:#f6f7f9; position:sticky; top:0 }
+    .chips{ display:flex; gap:6px; flex-wrap:wrap }
+    .chip{ background:#f1f5f9; border:1px solid #e2e8f0; border-radius:999px; padding:2px 8px; font-size:12px }
+    .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; padding:12px }
+    .modal{ background:#fff; border-radius:var(--radius); border:1px solid #e5e7eb; max-width:920px; width:100%; max-height:90vh; overflow:auto }
+    .modal header{ display:flex; align-items:center; padding:12px; border-bottom:1px solid #e5e7eb }
+    .modal .body{ padding:12px }
+    .muted{ color:#555; white-space:pre-wrap }
+    .nowrap{ white-space:nowrap }
   </style>
 </head>
 <body>
-  <header class="card" style="position: sticky; top: 0; z-index: 5;">
-    <div class="toolbar">
-      <strong style="font-size: 18px;">Gestor de Expedientes</strong>
-      <span style="color:#6b7280">MVP / LocalStorage</span>
-      <span class="spacer"></span>
+  <header class="card" style="position:sticky; top:0; z-index:5">
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+      <strong style="font-size:18px">Gestor de Expedientes</strong>
+      <span style="color:#6b7280">Multiusuario (Supabase)</span>
+      <span style="flex:1"></span>
       <button id="btn-nuevo">➕ Nuevo</button>
       <button id="btn-export">⬇️ Exportar CSV</button>
       <button id="btn-reset">🧹 Limpiar filtros</button>
     </div>
   </header>
 
-  <main class="grid" style="margin-top:12px;">
-
-    <!-- KPIs / Reportes -->
+  <main class="grid" style="margin-top:12px">
     <section class="grid grid-3">
       <div class="card">
         <div class="muted">Total de expedientes</div>
-        <div id="kpi-total" class="kpi">0</div>
+        <div id="kpi-total" style="font-size:28px; font-weight:700">0</div>
       </div>
       <div class="card">
         <div class="muted">Por tipo de juicio</div>
@@ -59,11 +52,10 @@
       </div>
     </section>
 
-    <!-- Filtros -->
     <section class="card">
       <details open>
         <summary><strong>Filtros de búsqueda</strong></summary>
-        <div class="grid grid-3" style="margin-top:8px;">
+        <div class="grid grid-3" style="margin-top:8px">
           <div>
             <label>Buscar texto</label>
             <input id="f-q" placeholder="Nº, actor, demandado, juzgado…"/>
@@ -94,9 +86,8 @@
       </details>
     </section>
 
-    <!-- Tabla -->
-    <section class="card" style="padding:0; overflow:auto;">
-      <table id="tabla">
+    <section class="card" style="padding:0; overflow:auto">
+      <table>
         <thead>
           <tr>
             <th class="nowrap">Nº expediente</th>
@@ -111,77 +102,34 @@
         </thead>
         <tbody id="tbody"></tbody>
       </table>
-      <div id="empty" class="muted" style="padding: 14px; display:none;">Sin registros. Crea el primero con «Nuevo».</div>
+      <div id="empty" class="muted" style="padding:14px; display:none">Sin registros. Crea el primero con «Nuevo».</div>
     </section>
   </main>
 
-  <!-- Modal Formulario -->
+  <!-- MODAL: Form -->
   <div class="modal-backdrop" id="modal-form">
     <div class="modal">
       <header>
         <strong id="form-title">Nuevo expediente</strong>
-        <span class="spacer"></span>
+        <span style="flex:1"></span>
         <button onclick="UI.closeForm()">✖</button>
       </header>
       <div class="body">
         <form id="form-exp" class="grid grid-2">
           <input type="hidden" id="id"/>
-          <div>
-            <label>Nº expediente *</label>
-            <input id="numero_expediente" required/>
-          </div>
-          <div>
-            <label>Tipo de juicio *</label>
-            <input id="tipo_juicio" placeholder="Civil / Familiar / Mercantil…" required/>
-          </div>
-
-          <div>
-            <label>Fecha último acuerdo *</label>
-            <input type="date" id="fecha_ultimo_acuerdo" required/>
-          </div>
-          <div>
-            <label>Circunscripción *</label>
-            <input id="circunscripcion" required/>
-          </div>
-
-          <div>
-            <label>Juzgado - Nombre *</label>
-            <input id="juzgado_nombre" required/>
-          </div>
-          <div>
-            <label>Juzgado - Número *</label>
-            <input id="juzgado_numero" required/>
-          </div>
-
-          <div>
-            <label>Municipio *</label>
-            <input id="municipio" required/>
-          </div>
-          <div>
-            <label>Estado *</label>
-            <input id="estado" required/>
-          </div>
-
-          <div>
-            <label>Actor (nombre) *</label>
-            <input id="actor_nombre" required/>
-          </div>
-          <div>
-            <label>Demandado (nombre) *</label>
-            <input id="demandado_nombre" required/>
-          </div>
-
-          <div class="grid" style="grid-column: 1 / -1;">
-            <label>Situación procesal (texto libre) *</label>
-            <textarea id="situacion_procesal" rows="3" required></textarea>
-          </div>
-
-          <div class="grid" style="grid-column: 1 / -1;">
-            <label>Nota interna (solo última versión)</label>
-            <textarea id="nota_interna" rows="2"></textarea>
-          </div>
-
-          <div style="grid-column: 1 / -1; display:flex; gap:8px; justify-content: flex-end;">
+          <div><label>Nº expediente *</label><input id="numero_expediente" required/></div>
+          <div><label>Tipo de juicio *</label><input id="tipo_juicio" required/></div>
+          <div><label>Fecha último acuerdo *</label><input type="date" id="fecha_ultimo_acuerdo" required/></div>
+          <div><label>Circunscripción *</label><input id="circunscripcion" required/></div>
+          <div><label>Juzgado - Nombre *</label><input id="juzgado_nombre" required/></div>
+          <div><label>Juzgado - Número *</label><input id="juzgado_numero" required/></div>
+          <div><label>Municipio *</label><input id="municipio" required/></div>
+          <div><label>Estado *</label><input id="estado" required/></div>
+          <div><label>Actor (nombre) *</label><input id="actor_nombre" required/></div>
+          <div><label>Demandado (nombre) *</label><input id="demandado_nombre" required/></div>
+          <div class="grid" style="grid-column:1/-1"><label>Situación procesal *</label><textarea id="situacion_procesal" rows="3" required></textarea></div>
+          <div class="grid" style="grid-column:1/-1"><label>Nota interna</label><textarea id="nota_interna" rows="2"></textarea></div>
+          <div style="grid-column:1/-1; display:flex; gap:8px; justify-content:flex-end">
             <button type="button" onclick="UI.closeForm()">Cancelar</button>
             <button>💾 Guardar</button>
           </div>
@@ -190,141 +138,98 @@
     </div>
   </div>
 
-  <!-- Modal Detalle -->
+  <!-- MODAL: Detalle -->
   <div class="modal-backdrop" id="modal-detalle">
     <div class="modal">
       <header>
         <strong>Detalle del expediente</strong>
-        <span class="spacer"></span>
+        <span style="flex:1"></span>
         <button onclick="UI.closeDetalle()">✖</button>
       </header>
       <div class="body">
         <div id="det-head" class="chips" style="margin-bottom:8px"></div>
         <div id="det-resumen" class="grid grid-2"></div>
-        <div class="card" style="margin-top:8px">
-          <div class="muted">Situación procesal</div>
-          <div id="det-situacion" class="muted"></div>
-        </div>
-        <div class="card" style="margin-top:8px">
-          <div class="muted">Nota interna</div>
-          <div id="det-nota" class="muted"></div>
-        </div>
-
+        <div class="card" style="margin-top:8px"><div class="muted">Situación procesal</div><div id="det-situacion" class="muted"></div></div>
+        <div class="card" style="margin-top:8px"><div class="muted">Nota interna</div><div id="det-nota" class="muted"></div></div>
         <details style="margin-top:8px">
           <summary><strong>Historial de actuaciones (oculto por defecto)</strong></summary>
           <div id="det-historial" class="grid" style="margin-top:8px"></div>
           <form id="form-act" class="grid grid-2" style="margin-top:8px">
-            <div>
-              <label>Fecha *</label>
-              <input type="date" id="act-fecha" required/>
-            </div>
-            <div>
-              <label>Descripción *</label>
-              <input id="act-desc" required/>
-            </div>
-            <div style="grid-column: 1 / -1; display:flex; gap:8px; justify-content:flex-end;">
-              <button>➕ Agregar actuación</button>
-            </div>
+            <div><label>Fecha *</label><input type="date" id="act-fecha" required/></div>
+            <div><label>Descripción *</label><input id="act-desc" required/></div>
+            <div style="grid-column:1/-1; display:flex; justify-content:flex-end; gap:8px"><button>➕ Agregar actuación</button></div>
           </form>
         </details>
-
-        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top: 8px;">
-          <button id="btn-imprimir">🖨️ Imprimir / PDF</button>
-        </div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px"><button id="btn-imprimir">🖨️ Imprimir / PDF</button></div>
       </div>
     </div>
   </div>
 
   <script>
-    // --------- Modelo y almacenamiento ---------
-    const STORAGE_KEY = 'expedientes_app_v2';
+    // ====== CONFIGURACIÓN SUPABASE ======
+    const SUPABASE_URL = "PON_AQUI_TU_URL";        // ej. https://xxxx.supabase.co
+    const SUPABASE_ANON_KEY = "PON_AQUI_TU_ANON_KEY";
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    function uid(){ return Math.random().toString(36).slice(2,10); }
-    function today(){ return new Date().toISOString().slice(0,10); }
+    // ====== Helpers ======
+    function chip(txt){ const s=document.createElement('span'); s.className='chip'; s.textContent=txt; return s }
+    function kv(k,v){ const d=document.createElement('div'); d.innerHTML=`<div class="muted">${escapeHtml(k)}</div><div><strong>${escapeHtml(v||'')}</strong></div>`; return d }
+    function escapeHtml(s){ return String(s||'').replace(/[&<>\"]/g,t=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[t])) }
+    function toCSV(rows){ if(!rows.length) return ''; const headers=Object.keys(rows[0]); const head=headers.join(','); const body=rows.map(r=>headers.map(h=>csvEsc(r[h])).join(',')).join('\n'); return head+'\n'+body; function csvEsc(v){ if(v==null) return ''; const s=String(v); return /[",\n]/.test(s)? '"'+s.replaceAll('"','""')+'"': s } }
 
-    const Store = {
-      all(){
-        try{ const raw = localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw): [] } catch { return [] }
-      },
-      save(list){ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); },
-      upsert(item){
-        const list = Store.all();
-        const i = list.findIndex(x => x.id === item.id);
-        if(i>=0) list[i] = item; else list.unshift(item);
-        Store.save(list); return item;
-      },
-      remove(id){ const list = Store.all().filter(x => x.id !== id); Store.save(list); },
-      get(id){ return Store.all().find(x => x.id === id) || null; }
-    };
-
-    // --------- UI y lógica ---------
+    // ====== Estado UI ======
     const UI = {
-      state: {
-        filtros: { q:'', tipo:'', desde:'', hasta:'', municipio:'', estado:'' }
-      },
+      filtros: { q:'', tipo:'', desde:'', hasta:'', municipio:'', estado:'' },
+      datos: [],
 
-      init(){
-        // Botones
+      async init(){
         document.getElementById('btn-nuevo').onclick = ()=> UI.openForm();
         document.getElementById('btn-export').onclick = ()=> Export.csv();
-        document.getElementById('btn-reset').onclick = ()=> { UI.state.filtros = { q:'', tipo:'', desde:'', hasta:'', municipio:'', estado:'' }; UI.syncFiltros(); UI.renderTabla(); };
-
-        // Filtros
-        ['f-q','f-tipo','f-desde','f-hasta','f-municipio','f-estado'].forEach(id=>{
-          document.getElementById(id).addEventListener('input', UI.onFiltroChange);
-        });
+        document.getElementById('btn-reset').onclick = ()=> { UI.filtros = { q:'', tipo:'', desde:'', hasta:'', municipio:'', estado:'' }; UI.syncFiltros(); UI.load(); };
+        ['f-q','f-tipo','f-desde','f-hasta','f-municipio','f-estado'].forEach(id=> document.getElementById(id).addEventListener('input', UI.onFiltroChange));
         UI.syncFiltros();
-
-        // Primera render
-        UI.renderTabla();
+        await UI.load();
       },
 
-      // ----- Filtros -----
       onFiltroChange(){
-        UI.state.filtros.q = document.getElementById('f-q').value.trim().toLowerCase();
-        UI.state.filtros.tipo = document.getElementById('f-tipo').value.trim();
-        UI.state.filtros.desde = document.getElementById('f-desde').value;
-        UI.state.filtros.hasta = document.getElementById('f-hasta').value;
-        UI.state.filtros.municipio = document.getElementById('f-municipio').value.trim();
-        UI.state.filtros.estado = document.getElementById('f-estado').value.trim();
-        UI.renderTabla();
-      },
-      syncFiltros(){
-        const f = UI.state.filtros;
-        document.getElementById('f-q').value = f.q;
-        document.getElementById('f-tipo').value = f.tipo;
-        document.getElementById('f-desde').value = f.desde;
-        document.getElementById('f-hasta').value = f.hasta;
-        document.getElementById('f-municipio').value = f.municipio;
-        document.getElementById('f-estado').value = f.estado;
+        UI.filtros.q = document.getElementById('f-q').value.trim();
+        UI.filtros.tipo = document.getElementById('f-tipo').value.trim();
+        UI.filtros.desde = document.getElementById('f-desde').value;
+        UI.filtros.hasta = document.getElementById('f-hasta').value;
+        UI.filtros.municipio = document.getElementById('f-municipio').value.trim();
+        UI.filtros.estado = document.getElementById('f-estado').value.trim();
+        UI.load();
       },
 
-      aplicarFiltros(list){
-        const f = UI.state.filtros;
-        return list.filter(e => {
-          const hitQ = !f.q || [
-            e.numero_expediente, e.actor_nombre, e.demandado_nombre, e.juzgado_nombre,
-            e.juzgado_numero, e.circunscripcion, e.municipio, e.estado, e.tipo_juicio, e.situacion_procesal
-          ].some(v => (v||'').toLowerCase().includes(f.q));
-          const hitTipo = !f.tipo || e.tipo_juicio.toLowerCase().includes(f.tipo.toLowerCase());
-          const hitMun = !f.municipio || e.municipio.toLowerCase().includes(f.municipio.toLowerCase());
-          const hitEdo = !f.estado || e.estado.toLowerCase().includes(f.estado.toLowerCase());
-          const d = new Date(e.fecha_ultimo_acuerdo);
-          const desde = f.desde? new Date(f.desde) : null;
-          const hasta = f.hasta? new Date(f.hasta) : null;
-          const hitFecha = (!desde || d >= desde) && (!hasta || d <= hasta);
-          return hitQ && hitTipo && hitMun && hitEdo && hitFecha;
-        }).sort((a,b) => b.fecha_ultimo_acuerdo.localeCompare(a.fecha_ultimo_acuerdo));
+      syncFiltros(){ const f=UI.filtros; ['f-q','f-tipo','f-desde','f-hasta','f-municipio','f-estado'].forEach(id=>{});
+        document.getElementById('f-q').value=f.q; document.getElementById('f-tipo').value=f.tipo; document.getElementById('f-desde').value=f.desde; document.getElementById('f-hasta').value=f.hasta; document.getElementById('f-municipio').value=f.municipio; document.getElementById('f-estado').value=f.estado; },
+
+      async load(){
+        // Construimos query con filtros principales del lado del servidor
+        let query = sb.from('expedientes').select('*').order('fecha_ultimo_acuerdo', { ascending: false });
+        const f = UI.filtros;
+        if (f.tipo) query = query.ilike('tipo_juicio', `%${f.tipo}%`);
+        if (f.municipio) query = query.ilike('municipio', `%${f.municipio}%`);
+        if (f.estado) query = query.ilike('estado', `%${f.estado}%`);
+        if (f.desde) query = query.gte('fecha_ultimo_acuerdo', f.desde);
+        if (f.hasta) query = query.lte('fecha_ultimo_acuerdo', f.hasta);
+        if (f.q) {
+          const q = f.q.replace(/,/g,'');
+          query = query.or(`numero_expediente.ilike.%${q}%,actor_nombre.ilike.%${q}%,demandado_nombre.ilike.%${q}%,juzgado_nombre.ilike.%${q}%,juzgado_numero.ilike.%${q}%,circunscripcion.ilike.%${q}%,tipo_juicio.ilike.%${q}%`);
+        }
+        const { data, error } = await query;
+        if (error) { console.error(error); alert('Error cargando datos'); return }
+        UI.datos = data || [];
+        UI.render();
       },
 
-      // ----- Tabla -----
-      renderTabla(){
-        const list = UI.aplicarFiltros(Store.all());
+      render(){
         const tbody = document.getElementById('tbody');
         const empty = document.getElementById('empty');
         tbody.innerHTML = '';
-        if(list.length === 0){ empty.style.display = 'block'; } else { empty.style.display = 'none'; }
-        list.forEach(e => {
+        if(UI.datos.length===0){ empty.style.display='block'; } else { empty.style.display='none'; }
+        UI.datos.forEach(e => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td class="nowrap"><strong>${escapeHtml(e.numero_expediente)}</strong></td>
@@ -334,206 +239,126 @@
             <td>${escapeHtml(e.juzgado_nombre)} / ${escapeHtml(e.juzgado_numero)}</td>
             <td>${escapeHtml(e.municipio)} / ${escapeHtml(e.estado)}</td>
             <td class="nowrap">${escapeHtml(e.fecha_ultimo_acuerdo)}</td>
-            <td style="text-align:right" class="row-actions">
+            <td style="text-align:right">
               <button onclick="UI.ver('${e.id}')">👁️ Ver</button>
               <button onclick="UI.editar('${e.id}')">✏️ Editar</button>
               <button onclick="Print.expediente('${e.id}')">🖨️ PDF</button>
               <button onclick="UI.eliminar('${e.id}')">🗑️ Eliminar</button>
-            </td>
-          `;
+            </td>`;
           tbody.appendChild(tr);
         });
-        // KPIs/Reportes
-        document.getElementById('kpi-total').textContent = String(list.length);
-        Reports.render(list);
+        // KPIs
+        document.getElementById('kpi-total').textContent = String(UI.datos.length);
+        Reports.render(UI.datos);
+      },
+
+      async eliminar(id){
+        if(!confirm('¿Eliminar expediente?')) return;
+        const { error } = await sb.from('expedientes').delete().eq('id', id);
+        if (error) { alert('Error al eliminar'); console.error(error); return }
+        await UI.load();
       },
 
       // ----- Form -----
       openForm(initial){
-        document.getElementById('modal-form').style.display = 'flex';
+        document.getElementById('modal-form').style.display='flex';
         document.getElementById('form-title').textContent = initial? 'Editar expediente' : 'Nuevo expediente';
-        const d = initial || {
-          id: uid(), numero_expediente:'', tipo_juicio:'', fecha_ultimo_acuerdo: today(), situacion_procesal:'',
-          juzgado_nombre:'', juzgado_numero:'', circunscripcion:'', municipio:'', estado:'', actor_nombre:'', demandado_nombre:'',
-          nota_interna:'', actuaciones: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-        };
-        for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){
-          document.getElementById(k).value = d[k] || '';
-        }
+        const d = initial || { id:'', numero_expediente:'', tipo_juicio:'', fecha_ultimo_acuerdo:new Date().toISOString().slice(0,10), situacion_procesal:'', juzgado_nombre:'', juzgado_numero:'', circunscripcion:'', municipio:'', estado:'', actor_nombre:'', demandado_nombre:'', nota_interna:'' };
+        for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ document.getElementById(k).value = d[k] || ''; }
         const form = document.getElementById('form-exp');
-        form.onsubmit = (ev)=>{
+        form.onsubmit = async (ev)=>{
           ev.preventDefault();
-          const data = {};
-          for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){
-            data[k] = document.getElementById(k).value.trim();
+          const data = {}; for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ data[k] = document.getElementById(k).value.trim(); }
+          for (const req of ['numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','circunscripcion','juzgado_nombre','juzgado_numero','municipio','estado','actor_nombre','demandado_nombre','situacion_procesal']){ if(!data[req]) return alert('Falta: '+req.replace('_',' ')); }
+          let res;
+          if (data.id) {
+            const id = data.id; delete data.id; // no actualizar PK
+            res = await sb.from('expedientes').update(data).eq('id', id).select('*').single();
+          } else {
+            res = await sb.from('expedientes').insert(data).select('*').single();
           }
-          if(!data.numero_expediente) return alert('El Nº de expediente es obligatorio');
-          if(!data.tipo_juicio) return alert('El tipo de juicio es obligatorio');
-          if(!data.actor_nombre) return alert('El nombre del actor es obligatorio');
-          if(!data.demandado_nombre) return alert('El nombre del demandado es obligatorio');
-          if(!data.juzgado_nombre || !data.juzgado_numero) return alert('Datos del juzgado incompletos');
-          if(!data.circunscripcion || !data.municipio || !data.estado) return alert('Ubicación incompleta');
-
-          const current = initial? Store.get(initial.id) : null;
-          const record = Object.assign({}, current || {}, data, {
-            actuaciones: current? current.actuaciones : [],
-            created_at: current? current.created_at : new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-          Store.upsert(record);
-          UI.closeForm();
-          UI.renderTabla();
+          if (res.error) { console.error(res.error); alert('Error al guardar'); return }
+          UI.closeForm(); await UI.load();
         };
       },
-      closeForm(){ document.getElementById('modal-form').style.display = 'none'; },
+      closeForm(){ document.getElementById('modal-form').style.display='none'; },
 
-      editar(id){ const rec = Store.get(id); if(rec) UI.openForm(rec); },
-      eliminar(id){ if(confirm('¿Eliminar expediente?')){ Store.remove(id); UI.renderTabla(); } },
+      editar(id){ const rec = UI.datos.find(x=>x.id===id); if(rec) UI.openForm(rec); },
 
-      // ----- Detalle -----
-      ver(id){
-        const e = Store.get(id); if(!e) return;
-        const head = document.getElementById('det-head');
-        const res = document.getElementById('det-resumen');
-        const sit = document.getElementById('det-situacion');
-        const nota = document.getElementById('det-nota');
-        const hist = document.getElementById('det-historial');
-        const btnImp = document.getElementById('btn-imprimir');
+      async ver(id){
+        const { data: e, error } = await sb.from('expedientes').select('*').eq('id', id).single();
+        if (error || !e) { alert('No encontrado'); return }
+        const head = document.getElementById('det-head'); head.innerHTML='';
+        head.append(chip('Nº '+e.numero_expediente)); head.append(chip('Tipo: '+e.tipo_juicio)); head.append(chip(e.municipio+' / '+e.estado)); head.append(chip('Últ. acuerdo: '+e.fecha_ultimo_acuerdo));
+        const res = document.getElementById('det-resumen'); res.innerHTML='';
+        res.append(kv('Actor', e.actor_nombre)); res.append(kv('Demandado', e.demandado_nombre)); res.append(kv('Juzgado', e.juzgado_nombre+' / '+e.juzgado_numero)); res.append(kv('Circunscripción', e.circunscripcion));
+        document.getElementById('det-situacion').textContent = e.situacion_procesal || '';
+        document.getElementById('det-nota').textContent = e.nota_interna || '';
 
-        head.innerHTML = '';
-        head.append(chip('Nº '+e.numero_expediente));
-        head.append(chip('Tipo: '+e.tipo_juicio));
-        head.append(chip(e.municipio+' / '+e.estado));
-        head.append(chip('Últ. acuerdo: '+e.fecha_ultimo_acuerdo));
-
-        res.innerHTML = '';
-        res.append(kv('Actor', e.actor_nombre));
-        res.append(kv('Demandado', e.demandado_nombre));
-        res.append(kv('Juzgado', e.juzgado_nombre+' / '+e.juzgado_numero));
-        res.append(kv('Circunscripción', e.circunscripcion));
-
-        sit.textContent = e.situacion_procesal || '';
-        nota.textContent = e.nota_interna || '';
-
-        hist.innerHTML = '';
-        (e.actuaciones || []).forEach(a => {
-          const c = document.createElement('div');
-          c.className = 'card';
-          c.innerHTML = `<div class="muted"><strong>${escapeHtml(a.fecha)}</strong> — ${escapeHtml(a.descripcion)}</div>`;
-          hist.append(c);
-        });
+        // Historial
+        const hist = document.getElementById('det-historial'); hist.innerHTML='';
+        const { data: acts } = await sb.from('actuaciones_historial').select('*').eq('expediente_id', id).order('fecha', { ascending: false });
+        (acts||[]).forEach(a=>{ const c=document.createElement('div'); c.className='card'; c.innerHTML = `<div class=muted><strong>${escapeHtml(a.fecha)}</strong> — ${escapeHtml(a.descripcion)}</div>`; hist.append(c); });
 
         const formAct = document.getElementById('form-act');
-        formAct.onsubmit = (ev)=>{
+        formAct.onsubmit = async (ev)=>{
           ev.preventDefault();
-          const fecha = document.getElementById('act-fecha').value;
-          const desc = document.getElementById('act-desc').value.trim();
+          const fecha = document.getElementById('act-fecha').value; const desc = document.getElementById('act-desc').value.trim();
           if(!fecha || !desc) return alert('Falta fecha o descripción');
-          const act = { id: uid(), fecha, descripcion: desc, created_at: new Date().toISOString() };
-          e.actuaciones = [act, ...(e.actuaciones||[])];
-          e.updated_at = new Date().toISOString();
-          Store.upsert(e);
-          UI.ver(e.id); // re-render detalle
-          document.getElementById('act-fecha').value = '';
-          document.getElementById('act-desc').value = '';
+          const { error } = await sb.from('actuaciones_historial').insert({ expediente_id: id, fecha, descripcion: desc });
+          if (error) { alert('Error al agregar actuación'); console.error(error); return }
+          document.getElementById('act-fecha').value=''; document.getElementById('act-desc').value='';
+          UI.ver(id); // recargar detalle
         };
 
-        btnImp.onclick = ()=> Print.expediente(e.id);
-
-        document.getElementById('modal-detalle').style.display = 'flex';
+        document.getElementById('btn-imprimir').onclick = ()=> Print.expediente(id);
+        document.getElementById('modal-detalle').style.display='flex';
       },
-      closeDetalle(){ document.getElementById('modal-detalle').style.display = 'none'; }
+      closeDetalle(){ document.getElementById('modal-detalle').style.display='none'; }
     };
 
-    // --------- Reportes sencillos ---------
+    // ====== Reportes ======
     const Reports = {
       render(list){
-        // por tipo
-        const byTipo = countBy(list, x => x.tipo_juicio);
-        const repTipo = document.getElementById('rep-tipo'); repTipo.innerHTML = '';
-        Object.entries(byTipo).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=> repTipo.append(chip(`${k}: ${v}`)));
-        if(Object.keys(byTipo).length===0) repTipo.textContent = '—';
-        // por estado
-        const byEdo = countBy(list, x => x.estado);
-        const repEdo = document.getElementById('rep-estado'); repEdo.innerHTML = '';
-        Object.entries(byEdo).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=> repEdo.append(chip(`${k}: ${v}`)));
-        if(Object.keys(byEdo).length===0) repEdo.textContent = '—';
+        const repTipo = document.getElementById('rep-tipo'); repTipo.innerHTML='';
+        const byTipo = countBy(list, x=>x.tipo_juicio); Object.entries(byTipo).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=> repTipo.append(chip(`${k}: ${v}`))); if(!Object.keys(byTipo).length) repTipo.textContent='—';
+        const repEdo = document.getElementById('rep-estado'); repEdo.innerHTML='';
+        const byEdo = countBy(list, x=>x.estado); Object.entries(byEdo).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=> repEdo.append(chip(`${k}: ${v}`))); if(!Object.keys(byEdo).length) repEdo.textContent='—';
+        function countBy(list, fn){ const m={}; list.forEach(x=>{ const k=fn(x)||'—'; m[k]=(m[k]||0)+1; }); return m }
       }
     };
 
-    // --------- Export / Print ---------
+    // ====== Export / Print ======
     const Export = {
-      csv(){
-        const list = UI.aplicarFiltros(Store.all());
-        if(list.length===0) return alert('No hay registros para exportar');
-        const rows = list.map(e => ({
-          numero_expediente: e.numero_expediente,
-          tipo_juicio: e.tipo_juicio,
-          fecha_ultimo_acuerdo: e.fecha_ultimo_acuerdo,
-          actor: e.actor_nombre,
-          demandado: e.demandado_nombre,
-          juzgado_nombre: e.juzgado_nombre,
-          juzgado_numero: e.juzgado_numero,
-          circunscripcion: e.circunscripcion,
-          municipio: e.municipio,
-          estado: e.estado,
-          situacion_procesal: e.situacion_procesal,
-          nota_interna: e.nota_interna || ''
-        }));
-        const csv = toCSV(rows);
-        const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `expedientes_${new Date().toISOString().slice(0,10)}.csv`;
-        a.click(); URL.revokeObjectURL(url);
+      async csv(){
+        const list = UI.datos; if(!list.length) return alert('No hay registros para exportar');
+        const rows = list.map(e=>({ numero_expediente:e.numero_expediente, tipo_juicio:e.tipo_juicio, fecha_ultimo_acuerdo:e.fecha_ultimo_acuerdo, actor:e.actor_nombre, demandado:e.demandado_nombre, juzgado_nombre:e.juzgado_nombre, juzgado_numero:e.juzgado_numero, circunscripcion:e.circunscripcion, municipio:e.municipio, estado:e.estado, situacion_procesal:e.situacion_procesal, nota_interna:e.nota_interna||'' }));
+        const csv = toCSV(rows); const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`expedientes_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
       }
     };
 
     const Print = {
-      expediente(id){
-        const e = Store.get(id); if(!e) return;
+      async expediente(id){
+        const { data: e } = await sb.from('expedientes').select('*').eq('id', id).single(); if(!e) return;
         const w = window.open('', '_blank'); if(!w) return;
-        const h = `<!doctype html><html lang="es"><head><meta charset="utf-8"/><title>Expediente ${e.numero_expediente}</title>
-          <style>
-            body{ font-family: system-ui, -apple-system, Segoe UI, Roboto; padding:20px }
-            h1{ font-size:20px; margin:0 0 6px }
-            .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:6px 12px }
-            .box{ border:1px solid #e5e7eb; padding:10px; border-radius:10px; margin-top:10px }
-            .label{ color:#555; font-size:12px }
-            .val{ font-weight:600 }
-            .muted{ white-space: pre-wrap }
-          </style></head><body>
+        const h = `<!doctype html><html lang=es><head><meta charset=utf-8><title>Expediente ${e.numero_expediente}</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto;padding:20px}h1{font-size:20px;margin:0 0 6px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}.box{border:1px solid #e5e7eb;padding:10px;border-radius:10px;margin-top:10px}.label{color:#555;font-size:12px}.val{font-weight:600}.muted{white-space:pre-wrap}</style></head><body>
           <h1>Expediente ${escapeHtml(e.numero_expediente)}</h1>
-          <div class="grid">
-            <div><div class="label">Tipo de juicio</div><div class="val">${escapeHtml(e.tipo_juicio)}</div></div>
-            <div><div class="label">Fecha último acuerdo</div><div class="val">${escapeHtml(e.fecha_ultimo_acuerdo)}</div></div>
-            <div><div class="label">Actor</div><div class="val">${escapeHtml(e.actor_nombre)}</div></div>
-            <div><div class="label">Demandado</div><div class="val">${escapeHtml(e.demandado_nombre)}</div></div>
-            <div><div class="label">Juzgado</div><div class="val">${escapeHtml(e.juzgado_nombre)} / ${escapeHtml(e.juzgado_numero)}</div></div>
-            <div><div class="label">Circunscripción</div><div class="val">${escapeHtml(e.circunscripcion)}</div></div>
-            <div><div class="label">Municipio</div><div class="val">${escapeHtml(e.municipio)}</div></div>
-            <div><div class="label">Estado</div><div class="val">${escapeHtml(e.estado)}</div></div>
+          <div class=grid>
+            <div><div class=label>Tipo de juicio</div><div class=val>${escapeHtml(e.tipo_juicio)}</div></div>
+            <div><div class=label>Fecha último acuerdo</div><div class=val>${escapeHtml(e.fecha_ultimo_acuerdo)}</div></div>
+            <div><div class=label>Actor</div><div class=val>${escapeHtml(e.actor_nombre)}</div></div>
+            <div><div class=label>Demandado</div><div class=val>${escapeHtml(e.demandado_nombre)}</div></div>
+            <div><div class=label>Juzgado</div><div class=val>${escapeHtml(e.juzgado_nombre)} / ${escapeHtml(e.juzgado_numero)}</div></div>
+            <div><div class=label>Circunscripción</div><div class=val>${escapeHtml(e.circunscripcion)}</div></div>
+            <div><div class=label>Municipio</div><div class=val>${escapeHtml(e.municipio)}</div></div>
+            <div><div class=label>Estado</div><div class=val>${escapeHtml(e.estado)}</div></div>
           </div>
-          <div class="box"><div class="label">Situación procesal</div><div class="muted">${escapeHtml(e.situacion_procesal)}</div></div>
-          ${e.nota_interna? `<div class="box"><div class="label">Nota interna</div><div class="muted">${escapeHtml(e.nota_interna)}</div></div>`: ''}
+          <div class=box><div class=label>Situación procesal</div><div class=muted>${escapeHtml(e.situacion_procesal)}</div></div>
+          ${e.nota_interna? `<div class=box><div class=label>Nota interna</div><div class=muted>${escapeHtml(e.nota_interna)}</div></div>`: ''}
         </body></html>`;
         w.document.write(h); w.document.close(); w.focus(); w.print();
       }
     };
-
-    // --------- Helpers ---------
-    function chip(txt){ const s = document.createElement('span'); s.className='chip'; s.textContent = txt; return s; }
-    function kv(k, v){ const d=document.createElement('div'); d.innerHTML = `<div class="muted">${escapeHtml(k)}</div><div><strong>${escapeHtml(v||'')}</strong></div>`; return d; }
-    function countBy(list, fn){ const m={}; list.forEach(x=>{ const k=fn(x)||'—'; m[k]=(m[k]||0)+1; }); return m; }
-    function escapeHtml(s){ return String(s||'').replace(/[&<>\"]/g, t=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[t])); }
-    function toCSV(rows){
-      if(!rows.length) return '';
-      const headers = Object.keys(rows[0]);
-      const head = headers.map(csvEsc).join(',');
-      const body = rows.map(r => headers.map(h => csvEsc(r[h])).join(',')).join('\n');
-      return head+'\n'+body;
-      function csvEsc(val){ if(val==null) return ''; const s=String(val); return /[",\n]/.test(s)? '"'+s.replaceAll('"','""')+'"': s; }
-    }
 
     // Iniciar
     UI.init();

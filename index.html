@@ -280,28 +280,31 @@
 
       // ----- Form -----
       openForm(initial){
-        document.getElementById('modal-form').style.display='flex';
-        document.getElementById('form-title').textContent = initial? 'Editar expediente' : 'Nuevo expediente';
-        const d = initial || { id:'', numero_expediente:'', tipo_juicio:'', fecha_ultimo_acuerdo:new Date().toISOString().slice(0,10), situacion_procesal:'', juzgado_nombre:'', juzgado_numero:'', circunscripcion:'', municipio:'', estado:'', actor_nombre:'', demandado_nombre:'', nota_interna:'' };
-        for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ document.getElementById(k).value = d[k] || ''; }
-        const form = document.getElementById('form-exp');
-        form.onsubmit = async (ev)=>{
-          ev.preventDefault();
-          const data = {}; for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ data[k] = document.getElementById(k).value.trim(); }
-          for (const req of ['numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','circunscripcion','juzgado_nombre','juzgado_numero','municipio','estado','actor_nombre','demandado_nombre','situacion_procesal']){ if(!data[req]) return alert('Falta: '+req.replace('_',' ')); }
-          let res;
-          if (data.id) {
-            const id = data.id; delete data.id; // no actualizar PK
-            res = await sb.from('expedientes').update(data).eq('id', id).select('*').single();
-          } else {
-            res = await sb.from('expedientes').insert(data).select('*').single();
-          }
-          if (res.error) { console.error(res.error); alert('Error al guardar'); return }
-          UI.closeForm(); await UI.load();
-        };
-      },
-      closeForm(){ document.getElementById('modal-form').style.display='none'; },
+  // Mostrar modal y bloquear scroll de fondo (opcional)
+  document.getElementById('modal-form').style.display='flex';
+  document.body.classList.add('modal-open');
 
+  document.getElementById('form-title').textContent = initial? 'Editar expediente' : 'Nuevo expediente';
+
+  // Valores iniciales
+  const d = initial || {
+    id:'', numero_expediente:'', tipo_juicio:'',
+    fecha_ultimo_acuerdo: new Date().toISOString().slice(0,10),
+    situacion_procesal:'', juzgado_nombre:'', juzgado_numero:'',
+    circunscripcion:'', municipio:'', estado:'',
+    actor_nombre:'', demandado_nombre:'', nota_interna:''
+  };
+
+  // Pintar en el formulario
+  for (const k of [
+    'id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal',
+    'juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado',
+    'actor_nombre','demandado_
+
+     closeForm(){
+  document.getElementById('modal-form').style.display='none';
+  document.body.classList.remove('modal-open');
+},
       editar(id){ const rec = UI.datos.find(x=>x.id===id); if(rec) UI.openForm(rec); },
 
       async ver(id){
@@ -332,8 +335,11 @@
 
         document.getElementById('btn-imprimir').onclick = ()=> Print.expediente(id);
         document.getElementById('modal-detalle').style.display='flex';
-      },
-      closeDetalle(){ document.getElementById('modal-detalle').style.display='none'; }
+      },closeDetalle(){
+  document.getElementById('modal-detalle').style.display='none';
+  document.body.classList.remove('modal-open');
+}
+
     };
 
     // ====== Reportes ======
@@ -384,4 +390,5 @@
   </script>
 </body>
 </html>
+
 

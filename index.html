@@ -289,218 +289,299 @@
   </div>
 
   <script>
-    // ====== CONFIGURACIÓN SUPABASE ======
-    const SUPABASE_URL = "https://klznqpzigtpmrhomzvnq.supabase.co";        // ej. https://xxxx.supabase.co
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsem5xcHppZ3RwbXJob216dm5xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwMjE3NjEsImV4cCI6MjA3MDU5Nzc2MX0.rqyi7nDeqLDem6HspKVdHfOnxD0WRPGvBHvL3fJ3FmY";
-    const { createClient } = supabase;
-    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // ====== CONFIGURACIÓN SUPABASE (usa tus valores) ======
+  const SUPABASE_URL = "https://klznqpzigtpmrhomzvnq.supabase.co";
+  const SUPABASE_ANON_KEY = "TU_ANON_KEY_AQUI";
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // ====== Helpers ======
-    function chip(txt){ const s=document.createElement('span'); s.className='chip'; s.textContent=txt; return s }
-    function kv(k,v){ const d=document.createElement('div'); d.innerHTML=`<div class="muted">${escapeHtml(k)}</div><div><strong>${escapeHtml(v||'')}</strong></div>`; return d }
-    function escapeHtml(s){ return String(s||'').replace(/[&<>\"]/g,t=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[t])) }
-    function toCSV(rows){ if(!rows.length) return ''; const headers=Object.keys(rows[0]); const head=headers.join(','); const body=rows.map(r=>headers.map(h=>csvEsc(r[h])).join(',')).join('\n'); return head+'\n'+body; function csvEsc(v){ if(v==null) return ''; const s=String(v); return /[",\n]/.test(s)? '"'+s.replaceAll('"','""')+'"': s } }
+  // ====== Helpers ======
+  function chip(txt){ const s=document.createElement('span'); s.className='chip'; s.textContent=txt; return s }
+  function kv(k,v){ const d=document.createElement('div'); d.innerHTML=`<div class="muted">${escapeHtml(k)}</div><div><strong>${escapeHtml(v||'')}</strong></div>`; return d }
+  function escapeHtml(s){ return String(s||'').replace(/[&<>\"]/g,t=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[t])) }
+  function toCSV(rows){ if(!rows.length) return ''; const headers=Object.keys(rows[0]); const head=headers.join(','); const body=rows.map(r=>headers.map(h=>csvEsc(r[h])).join(',')).join('\n'); return head+'\n'+body; function csvEsc(v){ if(v==null) return ''; const s=String(v); return /[",\n]/.test(s)? '"'+s.replaceAll('"','""')+'"': s } }
 
-    // ====== Estado UI ======
-    const UI = {
-      filtros: { q:'', tipo:'', desde:'', hasta:'', municipio:'', estado:'' },
-      datos: [],
+  // ====== Estado UI ======
+  const UI = {
+    filtros: { q:'', tipo:'', desde:'', hasta:'', municipio:'', estado:'' },
+    datos: [],
 
-      async init(){
-        // acciones de barra
-        document.getElementById('btn-nuevo').onclick = ()=> UI.openForm();
-        document.getElementById('btn-export').onclick = ()=> Export.csv();
-        document.getElementById('btn-reset').onclick = ()=> { UI.filtros = { q:'', tipo:'', desde:'', hasta:'', municipio:'', estado:'' }; UI.syncFiltros(); UI.load(); };
+    async init(){
+      document.getElementById('btn-nuevo').onclick = ()=> UI.openForm();
+      document.getElementById('btn-export').onclick = ()=> Export.csv();
+      document.getElementById('btn-reset').onclick = ()=> {
+        UI.filtros = { q:'', tipo:'', desde:'', hasta:'', municipio:'', estado:'' };
+        UI.syncFiltros(); UI.load();
+      };
+      ['f-q','f-tipo','f-desde','f-hasta','f-municipio','f-estado']
+        .forEach(id=> document.getElementById(id).addEventListener('input', UI.onFiltroChange));
+      UI.syncFiltros();
+      await UI.load();
+    },
 
-        // filtros
-        ['f-q','f-tipo','f-desde','f-hasta','f-municipio','f-estado'].forEach(id=> document.getElementById(id).addEventListener('input', UI.onFiltroChange));
-        UI.syncFiltros();
+    onFiltroChange(){
+      UI.filtros.q = document.getElementById('f-q').value.trim();
+      UI.filtros.tipo = document.getElementById('f-tipo').value.trim();
+      UI.filtros.desde = document.getElementById('f-desde').value;
+      UI.filtros.hasta = document.getElementById('f-hasta').value;
+      UI.filtros.municipio = document.getElementById('f-municipio').value.trim();
+      UI.filtros.estado = document.getElementById('f-estado').value.trim();
+      UI.load();
+    },
 
-        await UI.load();
-      },
+    syncFiltros(){
+      const f=UI.filtros;
+      document.getElementById('f-q').value=f.q;
+      document.getElementById('f-tipo').value=f.tipo;
+      document.getElementById('f-desde').value=f.desde;
+      document.getElementById('f-hasta').value=f.hasta;
+      document.getElementById('f-municipio').value=f.municipio;
+      document.getElementById('f-estado').value=f.estado;
+    },
 
-      onFiltroChange(){
-        UI.filtros.q = document.getElementById('f-q').value.trim();
-        UI.filtros.tipo = document.getElementById('f-tipo').value.trim();
-        UI.filtros.desde = document.getElementById('f-desde').value;
-        UI.filtros.hasta = document.getElementById('f-hasta').value;
-        UI.filtros.municipio = document.getElementById('f-municipio').value.trim();
-        UI.filtros.estado = document.getElementById('f-estado').value.trim();
-        UI.load();
-      },
+    async load(){
+      let query = sb.from('expedientes').select('*').order('fecha_ultimo_acuerdo', { ascending: false });
+      const f = UI.filtros;
+      if (f.tipo) query = query.ilike('tipo_juicio', `%${f.tipo}%`);
+      if (f.municipio) query = query.ilike('municipio', `%${f.municipio}%`);
+      if (f.estado) query = query.ilike('estado', `%${f.estado}%`);
+      if (f.desde) query = query.gte('fecha_ultimo_acuerdo', f.desde);
+      if (f.hasta) query = query.lte('fecha_ultimo_acuerdo', f.hasta);
+      if (f.q) {
+        const q = f.q.replace(/,/g,'');
+        query = query.or(
+          `numero_expediente.ilike.%${q}%,actor_nombre.ilike.%${q}%,demandado_nombre.ilike.%${q}%,juzgado_nombre.ilike.%${q}%,juzgado_numero.ilike.%${q}%,circunscripcion.ilike.%${q}%,tipo_juicio.ilike.%${q}%`
+        );
+      }
+      const { data, error } = await query;
+      if (error) { console.error(error); alert('Error cargando datos: ' + (error.message||'')); return }
+      UI.datos = data || [];
+      UI.render();
+    },
 
-      syncFiltros(){ const f=UI.filtros;
-        document.getElementById('f-q').value=f.q; document.getElementById('f-tipo').value=f.tipo;
-        document.getElementById('f-desde').value=f.desde; document.getElementById('f-hasta').value=f.hasta;
-        document.getElementById('f-municipio').value=f.municipio; document.getElementById('f-estado').value=f.estado;
-      },
+    render(){
+      const tbody = document.getElementById('tbody');
+      const empty = document.getElementById('empty');
+      tbody.innerHTML = '';
+      empty.style.display = UI.datos.length ? 'none' : 'block';
 
-      async load(){
-        let query = sb.from('expedientes').select('*').order('fecha_ultimo_acuerdo', { ascending: false });
-        const f = UI.filtros;
-        if (f.tipo) query = query.ilike('tipo_juicio', `%${f.tipo}%`);
-        if (f.municipio) query = query.ilike('municipio', `%${f.municipio}%`);
-        if (f.estado) query = query.ilike('estado', `%${f.estado}%`);
-        if (f.desde) query = query.gte('fecha_ultimo_acuerdo', f.desde);
-        if (f.hasta) query = query.lte('fecha_ultimo_acuerdo', f.hasta);
-        if (f.q) {
-          const q = f.q.replace(/,/g,'');
-          query = query.or(`numero_expediente.ilike.%${q}%,actor_nombre.ilike.%${q}%,demandado_nombre.ilike.%${q}%,juzgado_nombre.ilike.%${q}%,juzgado_numero.ilike.%${q}%,circunscripcion.ilike.%${q}%,tipo_juicio.ilike.%${q}%`);
+      UI.datos.forEach(e => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="nowrap"><strong>${escapeHtml(e.numero_expediente)}</strong></td>
+          <td>${escapeHtml(e.tipo_juicio)}</td>
+          <td>${escapeHtml(e.actor_nombre)}</td>
+          <td>${escapeHtml(e.demandado_nombre)}</td>
+          <td>${escapeHtml(e.juzgado_nombre)} / ${escapeHtml(e.juzgado_numero)}</td>
+          <td>${escapeHtml(e.municipio)} / ${escapeHtml(e.estado)}</td>
+          <td class="nowrap">${escapeHtml(e.fecha_ultimo_acuerdo)}</td>
+          <td style="text-align:right">
+            <button onclick="UI.ver('${e.id}')">👁️ Ver</button>
+            <button onclick="UI.editar('${e.id}')">✏️ Editar</button>
+            <button onclick="Print.expediente('${e.id}')">🖨️ PDF</button>
+            <button onclick="UI.eliminar('${e.id}')">🗑️ Eliminar</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('kpi-total').textContent = String(UI.datos.length);
+      Reports.render(UI.datos);
+    },
+
+    async eliminar(id){
+      if(!confirm('¿Eliminar expediente?')) return;
+      const { error } = await sb.from('expedientes').delete().eq('id', id);
+      if (error) { console.error(error); alert('Error al eliminar: ' + (error.message||'')); return }
+      await UI.load();
+    },
+
+    // ----- Form -----
+    openForm(initial){
+      document.body.classList.add('modal-open');
+      document.getElementById('modal-form').style.display='flex';
+      document.getElementById('form-title').textContent = initial? 'Editar expediente' : 'Nuevo expediente';
+
+      const d = initial || {
+        id:'', numero_expediente:'', tipo_juicio:'', fecha_ultimo_acuerdo:new Date().toISOString().slice(0,10),
+        situacion_procesal:'', juzgado_nombre:'', juzgado_numero:'', circunscripcion:'', municipio:'',
+        estado:'', actor_nombre:'', demandado_nombre:'', nota_interna:''
+      };
+      for (const k of [
+        'id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal',
+        'juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado',
+        'actor_nombre','demandado_nombre','nota_interna'
+      ]){ document.getElementById(k).value = d[k] || ''; }
+
+      const form = document.getElementById('form-exp');
+      form.onsubmit = async (ev)=>{
+        ev.preventDefault();
+
+        // Construir objeto limpio
+        const keys = [
+          'id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal',
+          'juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado',
+          'actor_nombre','demandado_nombre','nota_interna'
+        ];
+        const data = Object.fromEntries(keys.map(k => [k, (document.getElementById(k).value||'').trim()]));
+
+        // Validación mínima
+        for (const req of [
+          'numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','circunscripcion',
+          'juzgado_nombre','juzgado_numero','municipio','estado','actor_nombre',
+          'demandado_nombre','situacion_procesal'
+        ]) {
+          if(!data[req]) return alert('Falta: ' + req.replace('_',' '));
         }
-        const { data, error } = await query;
-        if (error) { console.error(error); alert('Error cargando datos'); return }
-        UI.datos = data || [];
-        UI.render();
-      },
 
-      render(){
-        const tbody = document.getElementById('tbody');
-        const empty = document.getElementById('empty');
-        tbody.innerHTML = '';
-        if(UI.datos.length===0){ empty.style.display='block'; } else { empty.style.display='none'; }
-        UI.datos.forEach(e => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="nowrap"><strong style="color:var(--brand)">${escapeHtml(e.numero_expediente)}</strong></td>
-            <td>${escapeHtml(e.tipo_juicio)}</td>
-            <td>${escapeHtml(e.actor_nombre)}</td>
-            <td>${escapeHtml(e.demandado_nombre)}</td>
-            <td>${escapeHtml(e.juzgado_nombre)} / ${escapeHtml(e.juzgado_numero)}</td>
-            <td>${escapeHtml(e.municipio)} / ${escapeHtml(e.estado)}</td>
-            <td class="nowrap">${escapeHtml(e.fecha_ultimo_acuerdo)}</td>
-            <td>
-              <div class="actions">
-                <button class="btn slim" onclick="UI.ver('${e.id}')">👁️ Ver</button>
-                <button class="btn slim" onclick="UI.editar('${e.id}')">✏️ Editar</button>
-                <button class="btn slim" onclick="Print.expediente('${e.id}')">🖨️ PDF</button>
-                <button class="btn slim" onclick="UI.eliminar('${e.id}')">🗑️ Eliminar</button>
-              </div>
-            </td>`;
-          tbody.appendChild(tr);
-        });
-        document.getElementById('kpi-total').textContent = String(UI.datos.length);
-        Reports.render(UI.datos);
-      },
+        // Guardar (sin mandar id vacío)
+        let res;
+        if (data.id) {
+          const id = data.id; delete data.id;
+          res = await sb.from('expedientes').update(data).eq('id', id).select('*').single();
+        } else {
+          delete data.id;
+          res = await sb.from('expedientes').insert(data).select('*').single();
+        }
 
-      async eliminar(id){
-        if(!confirm('¿Eliminar expediente?')) return;
-        const { error } = await sb.from('expedientes').delete().eq('id', id);
-        if (error) { alert('Error al eliminar'); console.error(error); return }
-        await UI.load();
-      },
+        if (res.error) { console.error(res.error); alert('Error al guardar: ' + (res.error.message||'')); return }
+        UI.closeForm(); await UI.load();
+      };
+    },
 
-      openForm(initial){
-        document.getElementById('modal-form').style.display='flex';
-        document.body.classList.add('modal-open');
-        document.getElementById('form-title').textContent = initial? 'Editar expediente' : 'Nuevo expediente';
-        const d = initial || { id:'', numero_expediente:'', tipo_juicio:'', fecha_ultimo_acuerdo:new Date().toISOString().slice(0,10), situacion_procesal:'', juzgado_nombre:'', juzgado_numero:'', circunscripcion:'', municipio:'', estado:'', actor_nombre:'', demandado_nombre:'', nota_interna:'' };
-        for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ document.getElementById(k).value = d[k] || ''; }
-        const form = document.getElementById('form-exp');
-        form.onsubmit = async (ev)=>{
-          ev.preventDefault();
-          const data = {}; 
-          for (const k of ['id','numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','situacion_procesal','juzgado_nombre','juzgado_numero','circunscripcion','municipio','estado','actor_nombre','demandado_nombre','nota_interna']){ data[k] = document.getElementById(k).value.trim(); }
-          for (const req of ['numero_expediente','tipo_juicio','fecha_ultimo_acuerdo','circunscripcion','juzgado_nombre','juzgado_numero','municipio','estado','actor_nombre','demandado_nombre','situacion_procesal']){ if(!data[req]) return alert('Falta: '+req.replace('_',' ')); }
-          let res;
-          if (data.id) {
-            const id = data.id; delete data.id;
-            res = await sb.from('expedientes').update(data).eq('id', id).select('*').single();
-          } else {
-            res = await sb.from('expedientes').insert(data).select('*').single();
-          }
-          if (res.error) { console.error(res.error); alert('Error al guardar'); return }
-          UI.closeForm(); await UI.load();
-        };
-      },
-      closeForm(){ document.getElementById('modal-form').style.display='none'; document.body.classList.remove('modal-open'); },
+    closeForm(){
+      document.body.classList.remove('modal-open');
+      document.getElementById('modal-form').style.display='none';
+    },
 
-      editar(id){ const rec = UI.datos.find(x=>x.id===id); if(rec) UI.openForm(rec); },
+    editar(id){
+      const rec = UI.datos.find(x=>x.id===id);
+      if(rec) UI.openForm(rec);
+    },
 
-      async ver(id){
-        const { data: e, error } = await sb.from('expedientes').select('*').eq('id', id).single();
-        if (error || !e) { alert('No encontrado'); return }
-        const head = document.getElementById('det-head'); head.innerHTML='';
-        head.append(chip('Nº '+e.numero_expediente)); head.append(chip('Tipo: '+e.tipo_juicio)); head.append(chip(e.municipio+' / '+e.estado)); head.append(chip('Últ. acuerdo: '+e.fecha_ultimo_acuerdo));
-        const res = document.getElementById('det-resumen'); res.innerHTML='';
-        res.append(kv('Actor', e.actor_nombre)); res.append(kv('Demandado', e.demandado_nombre)); res.append(kv('Juzgado', e.juzgado_nombre+' / '+e.juzgado_numero)); res.append(kv('Circunscripción', e.circunscripcion));
-        document.getElementById('det-situacion').textContent = e.situacion_procesal || '';
-        document.getElementById('det-nota').textContent = e.nota_interna || '';
+    async ver(id){
+      const { data: e, error } = await sb.from('expedientes').select('*').eq('id', id).single();
+      if (error || !e) { alert('No encontrado'); return }
 
-        const hist = document.getElementById('det-historial'); hist.innerHTML='';
-        const { data: acts } = await sb.from('actuaciones_historial').select('*').eq('expediente_id', id).order('fecha', { ascending: false });
-        (acts||[]).forEach(a=>{ const c=document.createElement('div'); c.className='card'; c.innerHTML = `<div class=muted><strong>${escapeHtml(a.fecha)}</strong> — ${escapeHtml(a.descripcion)}</div>`; hist.append(c); });
+      const head = document.getElementById('det-head'); head.innerHTML='';
+      head.append(chip('Nº '+e.numero_expediente));
+      head.append(chip('Tipo: '+e.tipo_juicio));
+      head.append(chip(e.municipio+' / '+e.estado));
+      head.append(chip('Últ. acuerdo: '+e.fecha_ultimo_acuerdo));
 
-        const formAct = document.getElementById('form-act');
-        formAct.onsubmit = async (ev)=>{
-          ev.preventDefault();
-          const fecha = document.getElementById('act-fecha').value; const desc = document.getElementById('act-desc').value.trim();
-          if(!fecha || !desc) return alert('Falta fecha o descripción');
-          const { error } = await sb.from('actuaciones_historial').insert({ expediente_id: id, fecha, descripcion: desc });
-          if (error) { alert('Error al agregar actuación'); console.error(error); return }
-          document.getElementById('act-fecha').value=''; document.getElementById('act-desc').value='';
-          UI.ver(id);
-        };
+      const res = document.getElementById('det-resumen'); res.innerHTML='';
+      res.append(kv('Actor', e.actor_nombre));
+      res.append(kv('Demandado', e.demandado_nombre));
+      res.append(kv('Juzgado', e.juzgado_nombre+' / '+e.juzgado_numero));
+      res.append(kv('Circunscripción', e.circunscripcion));
+      document.getElementById('det-situacion').textContent = e.situacion_procesal || '';
+      document.getElementById('det-nota').textContent = e.nota_interna || '';
 
-        document.getElementById('btn-imprimir').onclick = ()=> Print.expediente(id);
-        document.getElementById('modal-detalle').style.display='flex';
-        document.body.classList.add('modal-open');
-      },
-      closeDetalle(){ document.getElementById('modal-detalle').style.display='none'; document.body.classList.remove('modal-open'); }
-    };
+      // Historial de actuaciones
+      const hist = document.getElementById('det-historial'); hist.innerHTML='';
+      const { data: acts } = await sb
+        .from('actuaciones_historial')
+        .select('*')
+        .eq('expediente_id', id)
+        .order('fecha', { ascending: false });
+      (acts||[]).forEach(a=>{
+        const c=document.createElement('div');
+        c.className='card';
+        c.innerHTML = `<div class=muted><strong>${escapeHtml(a.fecha)}</strong> — ${escapeHtml(a.descripcion)}</div>`;
+        hist.append(c);
+      });
 
-    // ====== Reportes ======
-    const Reports = {
-      render(list){
-        const repTipo = document.getElementById('rep-tipo'); repTipo.innerHTML='';
-        const byTipo = countBy(list, x=>x.tipo_juicio); Object.entries(byTipo).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=> repTipo.append(chip(`${k}: ${v}`))); if(!Object.keys(byTipo).length) repTipo.textContent='—';
-        const repEdo = document.getElementById('rep-estado'); repEdo.innerHTML='';
-        const byEdo = countBy(list, x=>x.estado); Object.entries(byEdo).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=> repEdo.append(chip(`${k}: ${v}`))); if(!Object.keys(byEdo).length) repEdo.textContent='—';
-        function countBy(list, fn){ const m={}; list.forEach(x=>{ const k=fn(x)||'—'; m[k]=(m[k]||0)+1; }); return m }
-      }
-    };
+      // Alta de nueva actuación (evita UUID vacío)
+      const formAct = document.getElementById('form-act');
+      formAct.onsubmit = async (ev)=>{
+        ev.preventDefault();
+        const fecha = document.getElementById('act-fecha').value;
+        const desc  = (document.getElementById('act-desc').value||'').trim();
+        if(!fecha || !desc) return alert('Falta fecha o descripción');
+        if(!id) return alert('No se encontró el ID del expediente');
+        const { error } = await sb.from('actuaciones_historial').insert({ expediente_id: id, fecha, descripcion: desc });
+        if (error) { console.error(error); alert('Error al agregar actuación: ' + (error.message||'')); return }
+        document.getElementById('act-fecha').value=''; document.getElementById('act-desc').value='';
+        UI.ver(id);
+      };
 
-    // ====== Export / Print ======
-    const Export = {
-      async csv(){
-        const list = UI.datos; if(!list.length) return alert('No hay registros para exportar');
-        const rows = list.map(e=>({ numero_expediente:e.numero_expediente, tipo_juicio:e.tipo_juicio, fecha_ultimo_acuerdo:e.fecha_ultimo_acuerdo, actor:e.actor_nombre, demandado:e.demandado_nombre, juzgado_nombre:e.juzgado_nombre, juzgado_numero:e.juzgado_numero, circunscripcion:e.circunscripcion, municipio:e.municipio, estado:e.estado, situacion_procesal:e.situacion_procesal, nota_interna:e.nota_interna||'' }));
-        const csv = toCSV(rows); const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`expedientes_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
-      }
-    };
+      document.getElementById('btn-imprimir').onclick = ()=> Print.expediente(id);
+      document.body.classList.add('modal-open');
+      document.getElementById('modal-detalle').style.display='flex';
+    },
 
-    const Print = {
-      async expediente(id){
-        const { data: e } = await sb.from('expedientes').select('*').eq('id', id).single(); if(!e) return;
-        const w = window.open('', '_blank'); if(!w) return;
-        const h = `<!doctype html><html lang=es><head><meta charset=utf-8><title>Expediente ${e.numero_expediente}</title>
-          <style>
-            body{font-family:Poppins,system-ui,-apple-system,Segoe UI,Roboto;padding:24px;background:#fff;color:#111}
-            h1{font-size:22px;margin:0 0 10px}
-            .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
-            .box{border:1px solid #e5e7eb;padding:12px;border-radius:10px;margin-top:12px}
-            .label{color:#555;font-size:12px}.val{font-weight:600}
-            .muted{white-space:pre-wrap}
-          </style></head><body>
-          <h1>Expediente ${escapeHtml(e.numero_expediente)}</h1>
-          <div class=grid>
-            <div><div class=label>Tipo de juicio</div><div class=val>${escapeHtml(e.tipo_juicio)}</div></div>
-            <div><div class=label>Fecha último acuerdo</div><div class=val>${escapeHtml(e.fecha_ultimo_acuerdo)}</div></div>
-            <div><div class=label>Actor</div><div class=val>${escapeHtml(e.actor_nombre)}</div></div>
-            <div><div class=label>Demandado</div><div class=val>${escapeHtml(e.demandado_nombre)}</div></div>
-            <div><div class=label>Juzgado</div><div class=val>${escapeHtml(e.juzgado_nombre)} / ${escapeHtml(e.juzgado_numero)}</div></div>
-            <div><div class=label>Circunscripción</div><div class=val>${escapeHtml(e.circunscripcion)}</div></div>
-            <div><div class=label>Municipio</div><div class=val>${escapeHtml(e.municipio)}</div></div>
-            <div><div class=label>Estado</div><div class=val>${escapeHtml(e.estado)}</div></div>
-          </div>
-          <div class=box><div class=label>Situación procesal</div><div class=muted>${escapeHtml(e.situacion_procesal)}</div></div>
-          ${e.nota_interna? `<div class=box><div class=label>Nota interna</div><div class=muted>${escapeHtml(e.nota_interna)}</div></div>`: ''}
-        </body></html>`;
-        w.document.write(h); w.document.close(); w.focus(); w.print();
-      }
-    };
+    closeDetalle(){
+      document.body.classList.remove('modal-open');
+      document.getElementById('modal-detalle').style.display='none';
+    }
+  };
 
-    // Iniciar
-    UI.init();
-  </script>
+  // ====== Reportes ======
+  const Reports = {
+    render(list){
+      const repTipo = document.getElementById('rep-tipo'); repTipo.innerHTML='';
+      const byTipo = countBy(list, x=>x.tipo_juicio);
+      Object.entries(byTipo).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=> repTipo.append(chip(`${k}: ${v}`)));
+      if(!Object.keys(byTipo).length) repTipo.textContent='—';
+
+      const repEdo = document.getElementById('rep-estado'); repEdo.innerHTML='';
+      const byEdo = countBy(list, x=>x.estado);
+      Object.entries(byEdo).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=> repEdo.append(chip(`${k}: ${v}`)));
+      if(!Object.keys(byEdo).length) repEdo.textContent='—';
+
+      function countBy(list, fn){ const m={}; list.forEach(x=>{ const k=fn(x)||'—'; m[k]=(m[k]||0)+1; }); return m }
+    }
+  };
+
+  // ====== Export / Print ======
+  const Export = {
+    async csv(){
+      const list = UI.datos; if(!list.length) return alert('No hay registros para exportar');
+      const rows = list.map(e=>({
+        numero_expediente:e.numero_expediente, tipo_juicio:e.tipo_juicio, fecha_ultimo_acuerdo:e.fecha_ultimo_acuerdo,
+        actor:e.actor_nombre, demandado:e.demandado_nombre, juzgado_nombre:e.juzgado_nombre, juzgado_numero:e.juzgado_numero,
+        circunscripcion:e.circunscripcion, municipio:e.municipio, estado:e.estado, situacion_procesal:e.situacion_procesal,
+        nota_interna:e.nota_interna||''
+      }));
+      const csv = toCSV(rows);
+      const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob); const a=document.createElement('a');
+      a.href=url; a.download=`expedientes_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+    }
+  };
+
+  const Print = {
+    async expediente(id){
+      const { data: e } = await sb.from('expedientes').select('*').eq('id', id).single();
+      if(!e) return;
+      const w = window.open('', '_blank'); if(!w) return;
+      const h = `<!doctype html><html lang=es><head><meta charset=utf-8><title>Expediente ${e.numero_expediente}</title><style>
+        body{font-family:system-ui,-apple-system,Segoe UI,Roboto;padding:20px}
+        h1{font-size:20px;margin:0 0 6px}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+        .box{border:1px solid #e5e7eb;padding:10px;border-radius:10px;margin-top:10px}
+        .label{color:#555;font-size:12px}.val{font-weight:600}.muted{white-space:pre-wrap}
+      </style></head><body>
+        <h1>Expediente ${escapeHtml(e.numero_expediente)}</h1>
+        <div class=grid>
+          <div><div class=label>Tipo de juicio</div><div class=val>${escapeHtml(e.tipo_juicio)}</div></div>
+          <div><div class=label>Fecha último acuerdo</div><div class=val>${escapeHtml(e.fecha_ultimo_acuerdo)}</div></div>
+          <div><div class=label>Actor</div><div class=val>${escapeHtml(e.actor_nombre)}</div></div>
+          <div><div class=label>Demandado</div><div class=val>${escapeHtml(e.demandado_nombre)}</div></div>
+          <div><div class=label>Juzgado</div><div class=val>${escapeHtml(e.juzgado_nombre)} / ${escapeHtml(e.juzgado_numero)}</div></div>
+          <div><div class=label>Circunscripción</div><div class=val>${escapeHtml(e.circunscripcion)}</div></div>
+          <div><div class=label>Municipio</div><div class=val>${escapeHtml(e.municipio)}</div></div>
+          <div><div class=label>Estado</div><div class=val>${escapeHtml(e.estado)}</div></div>
+        </div>
+        <div class=box><div class=label>Situación procesal</div><div class=muted>${escapeHtml(e.situacion_procesal)}</div></div>
+        ${e.nota_interna? `<div class=box><div class=label>Nota interna</div><div class=muted>${escapeHtml(e.nota_interna)}</div></div>`: ''}
+      </body></html>`;
+      w.document.write(h); w.document.close(); w.focus(); w.print();
+    }
+  };
+
+  // Iniciar
+  UI.init();
+</script>
+
 </body>
 </html>
+
